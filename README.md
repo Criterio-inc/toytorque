@@ -6,7 +6,9 @@ ToyTorque är ett racingspel med radiostyrda leksaksbilar som tävlar i köket, 
 
 *An arcade racing game with radio-controlled toy cars, built with three.js and the Rapier physics engine. Runs in the browser and as a macOS app. The game and the code comments are in Swedish.*
 
-**Spela:** <https://www.criteroconsulting.se/spel/toytorque/>
+**Spela i webbläsaren:** <https://www.criteroconsulting.se/spel/toytorque/>
+
+**Mac-app:** [ladda ner ToyTorque för Mac](https://github.com/Criterio-inc/toytorque/releases/latest). Appen är signerad och notariserad av Apple och fungerar på både Intel och Apple Silicon. Öppna DMG-filen och dra ToyTorque till Program.
 
 ## Det här finns i spelet
 
