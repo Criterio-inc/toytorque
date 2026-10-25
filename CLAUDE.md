@@ -6,7 +6,7 @@ Arbetsregler för Claude Code i det här repot. Läs hela filen innan du ändrar
 
 ToyTorque är ett racingspel med radiostyrda leksaksbilar. Det körs i webbläsaren och som Mac-app via Tauri, och är byggt med Vite, three.js och Rapier (`@dimforge/rapier3d-compat`). Repot är publikt under MIT-licensen. Ägare är Pär Levander (Critero Consulting). Han är inte utvecklare, så förklara val och resultat på enkel svenska.
 
-Spelet hade ett arbetsnamn fram till 2026-10-25, och därför heter den lokala mappen fortfarande `~/Projects/revolt`. Den äldre historiken finns i ett privat arkivrepo och ska inte föras över hit.
+Spelet hade ett arbetsnamn fram till 2026-10-25. Den äldre historiken finns i ett privat arkivrepo (remote `arkiv`) och ska aldrig pushas hit.
 
 ## Inspiration, inte lån
 
@@ -20,7 +20,7 @@ Detta är den viktigaste regeln i repot. Spelet får ta intryck av andra spel me
 ## Kommandon
 
 ```bash
-npm run dev     # Vite, http://localhost:5173 (launch.json-namn "revolt", port 5190)
+npm run dev     # Vite, http://localhost:5173 (launch.json-namn "toytorque", port 5190)
 npm test        # scripts/sim-test.mjs: körtester utan grafik i Node, ungefär 250 st
 npm test rasket # bara tester för en bil eller bana
 npm run build   # dist/ med base './' (fungerar i undermapp och i Tauri)
