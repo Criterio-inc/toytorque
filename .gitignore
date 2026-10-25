@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Obsidian-valvets egna inställningar hör inte i koden
+.obsidian/
+_ref/
+scripts/dev/
+.claude/worktrees/

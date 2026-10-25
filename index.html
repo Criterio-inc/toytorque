@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ToyTorque</title>
+    <link rel="icon" href="./favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0f14; }
+      #app { width: 100vw; height: 100vh; }
+      canvas { display: block; }
+
+      :root {
+        --cyan: #52e4ff;
+        --white: #f3f3f0;
+        --outline: 0 0 2px #000, 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000, 2px 3px 4px rgba(0,0,0,.6);
+        --hud: clamp(13px, 1.9vh, 22px);
+      }
+
+      #hud {
+        position: fixed; inset: 0; pointer-events: none;
+        font-family: "Trebuchet MS", "Arial Narrow", system-ui, sans-serif;
+        font-style: italic; font-weight: 700;
+        color: var(--white); text-shadow: var(--outline);
+        font-size: var(--hud);
+      }
+      .lbl { color: var(--cyan); }
+      .num { font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+
+      /* Uppe till vänster: varv och vapenruta */
+      #lapBox { position: absolute; left: 3.2vh; top: 2.6vh; line-height: 1.05; }
+      #lapBox .num { font-size: 1.15em; }
+      #weapon {
+        position: absolute; left: 3vh; top: 9.5vh;
+        width: 8.5vh; height: 8.5vh; border-radius: 1.6vh;
+        background: radial-gradient(circle at 50% 45%, #5a1414 0%, #3a0b0b 70%);
+        border: .45vh solid #c9ccd2;
+        box-shadow: inset 0 0 1.2vh rgba(0,0,0,.7), 0 .3vh .8vh rgba(0,0,0,.5);
+      }
+      #weapon .icon { position: absolute; inset: 8%; width: 84%; height: 84%; z-index: 1; }
+      #weapon .count { position: absolute; right: -.4vh; bottom: -.6vh; z-index: 2; font-size: 1.1em; }
+      #weapon.armed { box-shadow: inset 0 0 1.2vh rgba(0,0,0,.7), 0 0 1.6vh rgba(255,200,60,.7); }
+      #weapon::before, #weapon::after {
+        content: ""; position: absolute; background: #c9ccd2;
+      }
+      #weapon::before { left: 50%; top: -6%; width: .45vh; height: 22%; transform: translateX(-50%); box-shadow: 0 6.35vh 0 #c9ccd2; }
+      #weapon::after { top: 50%; left: -6%; height: .45vh; width: 22%; transform: translateY(-50%); box-shadow: 6.35vh 0 0 #c9ccd2; }
+
+      /* Uppe till höger: tider */
+      #times { position: absolute; right: 3vh; top: 2.2vh; text-align: right; line-height: 1.02; }
+      #times .row { margin-bottom: .55em; }
+      #times .num { font-size: 1.12em; }
+
+      /* Nere till vänster: placering och bilpanel */
+      #pos { position: absolute; left: 3.6vh; bottom: 12vh; font-size: 2.3em; line-height: 1; }
+      #pos sup { color: var(--cyan); font-size: .5em; vertical-align: top; margin-left: .05em; }
+      #carPanel {
+        position: absolute; left: 2.6vh; bottom: 2.6vh;
+        min-width: 25vh; padding: .5vh 1.4vh .6vh 1.2vh;
+        border: .4vh solid #3946c8; border-radius: 1.1vh;
+        background: linear-gradient(#141a3a, #0b0f24);
+        box-shadow: 0 0 .9vh rgba(70,90,255,.45);
+        font-size: .82em; line-height: 1.25;
+        display: grid; grid-template-columns: auto 1fr; column-gap: 1.6vh;
+      }
+      #carPanel .gap { color: #4dff7a; }
+      #carPanel .gap.behind { color: #ff4d4d; }
+
+      /* Nere till höger: varvlampor och fart */
+      #speedo { position: absolute; right: 3vh; bottom: 2.4vh; width: 30vh; height: 13vh; }
+      #speedo .dot {
+        position: absolute; border-radius: 50%;
+        box-shadow: inset -.25vh -.35vh .5vh rgba(0,0,0,.55), inset .2vh .2vh .4vh rgba(255,255,255,.35), 0 0 .3vh rgba(0,0,0,.8);
+        transition: filter .06s;
+      }
+      #speedo .dot.off { filter: brightness(.28) saturate(.6); }
+      #speedVal { position: absolute; right: 0; bottom: 0; font-size: 1.05em; }
+
+      /* Mitten: nedräkning och meddelanden */
+      #countdown {
+        position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+        font-size: 18vh; color: var(--white);
+      }
+      #message {
+        position: absolute; left: 0; right: 0; top: 30vh; text-align: center;
+        font-size: 4.4vh; color: var(--white); opacity: 0; transition: opacity .25s;
+      }
+      #message.show { opacity: 1; }
+      #message.warn { color: #ff4b3a; }
+
+      #finish {
+        position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+        background: rgba(5,8,20,.55); text-align: center; gap: 1.2vh;
+      }
+      #finish .big { font-size: 9vh; color: var(--white); }
+      #finish .row { font-size: 3vh; }
+      #results { margin-top: 1.4vh; display: grid; gap: .3vh; min-width: 36vh; font-size: 2.2vh; }
+      #results .res { display: grid; grid-template-columns: 6vh 1fr auto; gap: 1.5vh; padding: .2vh 1.2vh; border-radius: .6vh; background: rgba(10,16,40,.55); text-align: left; }
+      #results .res.me { background: rgba(57,70,200,.75); }
+      #finish .hint { font-size: 2vh; opacity: .85; margin-top: 2vh; color: var(--cyan); }
+
+      #help {
+        position: absolute; left: 50%; bottom: 3vh; transform: translateX(-50%);
+        font-style: normal; font-weight: 600; font-size: 1.6vh; line-height: 1.8; text-shadow: none;
+        background: rgba(8,10,20,.62); color: #e8ecf5;
+        padding: 1vh 2vh; border-radius: 1.2vh; text-align: center;
+        transition: opacity .6s;
+      }
+      #help.hidden { opacity: 0; }
+      #help kbd { display: inline-block; background: rgba(255,255,255,.14); border-radius: .5vh; padding: 0 .7vh; font-family: ui-monospace, monospace; }
+
+      /* Menyerna */
+      #menu {
+        position: fixed; inset: 0; z-index: 5; display: none;
+        align-items: center; gap: 4vw; padding: 0 6vw;
+        font-family: "Trebuchet MS", "Arial Narrow", system-ui, sans-serif; font-style: italic; font-weight: 700;
+        color: #f3f3f0; text-shadow: 0 0 2px #000, 2px 2px 0 #000, -1px -1px 0 #000, 3px 4px 6px rgba(0,0,0,.6);
+        background: linear-gradient(90deg, rgba(5,10,30,.72) 0%, rgba(5,10,30,.35) 45%, rgba(5,10,30,0) 70%);
+        pointer-events: auto;
+      }
+      #menu .panel { min-width: 34vh; }
+      #menu .logo { font-size: 9vh; letter-spacing: .4vh; line-height: 1; color: #ffd23f;
+        text-shadow: 0 0 2px #000, 4px 4px 0 #c0331f, 6px 7px 0 #000, 0 0 3vh rgba(255,160,40,.5); }
+      #menu svg.brand { display: block; width: min(84vh, 56vw); height: auto; margin: -4vh 0 -1vh -3vh; filter: drop-shadow(0 1vh 1.6vh rgba(0,0,0,.45)); }
+      #menu svg.brand, #menu svg.brand * { text-shadow: none; }
+      #menu .logo:has(svg) { text-shadow: none; }
+      #menu .logo b { color: #ff4b3a; font-size: 1.15em; text-shadow: 0 0 2px #000, 4px 4px 0 #7a0d08, 6px 7px 0 #000, 0 0 3vh rgba(255,80,40,.6); }
+      #menu .logo span { color: #52e4ff; text-shadow: 0 0 2px #000, 4px 4px 0 #1a4fb0, 6px 7px 0 #000, 0 0 3vh rgba(80,200,255,.5); }
+      #menu .sub { margin: 1vh 0 2.5vh; font-size: 2.4vh; color: #52e4ff; }
+      #menu ul { list-style: none; display: grid; gap: .6vh; }
+      #menu li { font-size: 3.6vh; padding: .3vh 1.4vh; border-radius: .8vh; cursor: pointer; transition: transform .08s; }
+      #menu li.on { color: #52e4ff; transform: translateX(1.2vh) scale(1.04); background: linear-gradient(90deg, rgba(57,70,200,.55), rgba(57,70,200,0)); }
+      #menu li.off { opacity: .4; cursor: default; }
+      #menu li .arr { font-size: .7em; margin: 0 .8vh; color: #ffd23f; }
+      /* Upplåsning: låsta bilar, UPPLÅST!-kort, utmaningar */
+      #menu li.locked { color: #8a90a6; }
+      #menu li.locked.on { color: #b9c0d8; }
+      #menu .lockedcard { filter: grayscale(.6); border-color: #555c78; }
+      #menu .lockedcard .req { color: #ffd23f; font-size: 2.2vh; }
+      #menu .unlocked { color: #ffd23f; animation: unlockpop .9s ease-out; display: inline-block; }
+      @keyframes unlockpop { 0% { transform: scale(.3) rotate(-8deg); opacity: 0; } 60% { transform: scale(1.15) rotate(2deg); opacity: 1; } 100% { transform: scale(1); } }
+      #menu .unlockgrid { display: flex; flex-wrap: wrap; gap: 1.2vh; width: min(82vh, 58vw); max-height: 80vh; overflow: auto; }
+      #menu .unlockgrid .card { width: 25vh; }
+      #menu .side:has(.unlockgrid) { max-width: 82vh; }
+      #menu .card.fresh { border-color: #ffd23f; box-shadow: 0 0 2.4vh rgba(255,210,63,.55); padding: 1.4vh 1.8vh; }
+      #menu .card .ok { color: #55d42a; }
+      #menu .card .no { color: #ff6a50; }
+      #menu .side { max-width: 42vh; margin-left: auto; }
+      #menu .card { background: rgba(8,12,32,.78); border: .35vh solid #3946c8; border-radius: 1.4vh; padding: 2vh 2.4vh;
+        box-shadow: 0 0 1.6vh rgba(70,90,255,.4); font-size: 2vh; line-height: 1.45; }
+      #menu .card h3 { font-size: 3vh; color: #ffd23f; margin-bottom: .8vh; }
+      #menu .card p { margin: .6vh 0; font-weight: 600; }
+      #menu .card .meta { color: #9fdcff; font-size: 1.8vh; }
+      #menu .stat { display: grid; grid-template-columns: 13vh 1fr; align-items: center; margin: .8vh 0; font-size: 1.9vh; }
+      #menu .bar { height: 1.3vh; background: rgba(255,255,255,.12); border-radius: .7vh; overflow: hidden; }
+      #menu .bar i { display: block; height: 100%; background: linear-gradient(90deg, #e8321f, #f7a21b, #55d42a); }
+      #menu .bar.hard i { background: linear-gradient(90deg, #55d42a, #f7a21b, #e8321f); }
+      #menu .card .desc { color: #fff3c4; font-style: italic; }
+      #menu table { width: 100%; border-collapse: collapse; margin: .4vh 0 1.4vh; font-size: 1.9vh; }
+      #menu td { padding: .25vh .8vh; }
+      #menu td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+      #menu tr.me { color: #52e4ff; }
+      #menu .hintbar { position: absolute; left: 0; right: 0; bottom: 2.4vh; text-align: center; font-size: 1.9vh; color: #9fdcff; }
+      #hud.intro > div:not(#message):not(#raceinfo) { visibility: hidden; }
+      #raceinfo { position: absolute; left: 0; right: 0; top: 30vh; margin: 0 auto; width: max-content; min-width: 40vh;
+        padding: 2.4vh 4vh; font-size: 3vh; line-height: 1.5; opacity: 0; transition: opacity .4s;
+        background: radial-gradient(ellipse at center, rgba(20,30,120,.82), rgba(5,8,40,.7)); border: .3vh solid #3946c8; border-radius: 1.4vh; }
+      #raceinfo.show { opacity: 1; }
+      #raceinfo .k { color: #f3f3f0; }
+      #raceinfo .v { color: #52e4ff; }
+      /* Delad skärm: spelare 1 överst, spelare 2 nederst */
+      body.split #hud { bottom: 50vh; }
+      body.split #help { display: none !important; }
+      #hud2 { display: none; }
+      body.split #hud2 { display: block; position: fixed; left: 0; right: 0; bottom: 0; height: 50vh; pointer-events: none;
+        border-top: .5vh solid #0b0716; font: italic 700 var(--hud) "Trebuchet MS", system-ui, sans-serif; color: var(--white); text-shadow: var(--outline); }
+      #hud2 .p2pos { position: absolute; left: 3vh; bottom: 3vh; font-size: 2.2em; }
+      #hud2 .p2pos sup { color: var(--cyan); font-size: .5em; }
+      #hud2 .p2lap { position: absolute; left: 3vh; top: 2vh; color: var(--cyan); }
+      #hud2 .p2w { position: absolute; left: 3vh; top: 5vh; color: #ffd23f; }
+      #hud2 .p2spd { position: absolute; right: 3vh; bottom: 3vh; }
+      #hud2 .p2name { position: absolute; right: 3vh; top: 2vh; color: #ff8a3c; }
+      body.menu-open #hud2 { display: none; }
+      body.menu-open #finish, body.menu-open #help { display: none !important; }
+
+      /* --- Repris (src/race/replay.js) --- */
+      #replay {
+        position: fixed; left: 3vh; right: 3vh; bottom: 2.6vh; pointer-events: none; z-index: 5;
+        font: italic 700 var(--hud) "Trebuchet MS", "Arial Narrow", system-ui, sans-serif;
+        color: var(--white); text-shadow: var(--outline);
+      }
+      #replay .rp-top { display: flex; align-items: center; gap: 1.4vh; margin-bottom: .8vh; }
+      #replay .rp-badge {
+        padding: .3vh 1.2vh; border-radius: .6vh; background: #d11f1f; color: #fff;
+        letter-spacing: .35vh; text-shadow: none; box-shadow: 0 .3vh .8vh rgba(0,0,0,.5);
+      }
+      #replay.blink .rp-badge { background: #8e1313; }
+      #replay .rp-info { font-variant-numeric: tabular-nums; }
+      #replay .rp-bar { height: .7vh; border-radius: .35vh; background: rgba(255,255,255,.22); overflow: hidden; }
+      #replay .rp-bar i { display: block; height: 100%; width: 0; background: var(--cyan); }
+      #replay .rp-hint { margin-top: .7vh; font-size: .75em; color: #9fdcff; }
+      /* --- slut repris --- */
+      /* Stuntläget: stjärnräknare och tid i stället för varv, placering och vapen */
+      #stuntBox { position: absolute; left: 3.2vh; top: 2.4vh; line-height: 1.05; display: none; }
+      #stuntStars { font-size: 2.1em; color: #ffd23f; }
+      #stuntTime { font-size: 1.15em; margin-top: .3vh; }
+      body.stunt-mode #stuntBox { display: block; }
+      body.stunt-mode #lapBox, body.stunt-mode #weapon, body.stunt-mode #times,
+      body.stunt-mode #pos, body.stunt-mode #carPanel, body.stunt-mode #countdown, body.stunt-mode #finish { display: none !important; }
+
+      #loading {
+        position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: #0d0f14; color: #fff; z-index: 10;
+        font: italic 700 2.4vh "Trebuchet MS", system-ui, sans-serif; letter-spacing: .3vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="hud">
+      <div id="stuntBox"><div id="stuntStars">★ 0/20</div><div class="num" id="stuntTime">00:00</div></div>
+      <div id="lapBox"><div class="lbl">Lap</div><div class="num" id="lap">1/3</div></div>
+      <div id="weapon"></div>
+      <div id="times">
+        <div class="row"><div class="lbl">Last Lap</div><div class="num" id="tLast">00:00:000</div></div>
+        <div class="row"><div class="lbl">Best Lap</div><div class="num" id="tBest">05:00:000</div></div>
+        <div class="row"><div class="lbl">Lap</div><div class="num" id="tLap">00:00:000</div></div>
+        <div class="row"><div class="lbl">Race</div><div class="num" id="tRace">00:00:000</div></div>
+      </div>
+      <div id="pos"><span id="posNum">1</span><sup id="posSuf">st</sup></div>
+      <div id="carPanel"><span class="gap" id="gapA">-0m</span><span id="carName">Rasket</span><span class="gap behind" id="gapB">+0m</span><span id="carClass">Rookie</span></div>
+      <div id="speedo"><div id="speedVal"><span class="num" id="mph">0</span> km/h</div></div>
+      <div id="countdown">3</div>
+      <div id="message"></div>
+      <div id="raceinfo"></div>
+      <div id="finish">
+        <div class="big" id="finishPos">1st</div>
+        <div class="row"><span class="lbl">Race </span><span class="num" id="finishTime">00:00:000</span></div>
+        <div class="row"><span class="lbl">Best Lap </span><span class="num" id="finishBest">00:00:000</span></div>
+        <div id="results"></div>
+        <div class="hint"></div>
+      </div>
+      <div id="help">
+        <kbd>W</kbd><kbd>S</kbd> gas / broms–back &nbsp; <kbd>A</kbd><kbd>D</kbd> styr &nbsp;
+        <kbd>Mellanslag</kbd>/<kbd>E</kbd> vapen &nbsp; <kbd>F</kbd> tillbaka på vägen &nbsp; <kbd>R</kbd> senaste punkten<br />
+        <kbd>C</kbd> kamera &nbsp; <kbd>Esc</kbd> paus (starta om, avsluta) &nbsp; <kbd>H</kbd> hjälp
+      </div>
+    </div>
+    <div id="loading">TOYTORQUE · LADDAR…</div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
