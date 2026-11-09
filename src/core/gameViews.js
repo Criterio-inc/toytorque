@@ -73,3 +73,21 @@ export function direct(g, dt) {
   }
   return D.car;
 }
+
+// Himmel som vertikal gradient: skyGradient = [topp, horisont, (botten)]
+export function makeSkyTexture(stops) {
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  const cols = stops.map((s) => '#' + new THREE.Color(s).getHexString());
+  g.addColorStop(0, cols[0]);
+  g.addColorStop(0.5, cols[1]);
+  g.addColorStop(1, cols[2] ?? cols[1]);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  return tex;
+}

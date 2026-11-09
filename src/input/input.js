@@ -1,14 +1,14 @@
 // ---------------------------------------------------------------------------
 // Input: tangentbord och handkontroll → controls-struct + engångshändelser.
 //   W/↑ gas, S/↓ broms/back, A/D ←/→ styr
-//   Mellanslag/E avfyra vapen, Q turbo ur stuntmätaren, F tillbaka mitt på vägen, R senaste punkten, C kamera
+//   Mellanslag/E avfyra vapen, Q turbo ur stuntmätaren, M minikarta, F tillbaka mitt på vägen, R senaste punkten, C kamera
 //   Enter starta om loppet, 1–3 byt bil, L byt bana, H visa/dölj hjälp
 // ---------------------------------------------------------------------------
 
 const ACTIONS = {
   // Spelare 2 vid delad skärm: piltangenter, höger Shift avfyrar, - vänder, . tillbaka, , turbo
   ShiftRight: 'fire2', Slash: 'flip2', Period: 'reposition2', Comma: 'boost2',
-  KeyR: 'reposition', KeyF: 'flip', KeyL: 'level', Space: 'fire', KeyE: 'fire', KeyC: 'camera', KeyQ: 'boost', Enter: 'restart', KeyH: 'help',
+  KeyR: 'reposition', KeyF: 'flip', KeyL: 'level', Space: 'fire', KeyE: 'fire', KeyC: 'camera', KeyQ: 'boost', KeyM: 'map', Enter: 'restart', KeyH: 'help',
   Digit1: 'car1', Digit2: 'car2', Digit3: 'car3', Escape: 'pause', KeyP: 'pause',
 };
 const BLOCK = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space']);

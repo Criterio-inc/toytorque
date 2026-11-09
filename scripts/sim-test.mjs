@@ -22,6 +22,7 @@ import { PathFollower, AiDriver } from '../src/ai/pathFollower.js';
 import { buildField } from '../src/race/field.js';
 import { WeaponSystem } from '../src/weapons/weaponSystem.js';
 import { StuntBonus, BONUS } from '../src/race/stuntBonus.js';
+import { fitMap } from '../src/ui/minimap.js';
 import { stuntarena, BUILD_STATS } from '../src/level/stuntarena.js';
 import { StuntSession } from '../src/stunt/stunt.js';
 import { EXAMPLES, fromPath } from '../src/editor/storage.js';
@@ -860,6 +861,23 @@ if (!only || only === 'turbo') {
     check(`Turbo: lopp ${level.name}`, done === 8 && bad === 0 && stunts > 0 && boosts >= 6,
       `i mål ${done}/8 på ${t.toFixed(0)} s, stunts ${stunts} (${Object.entries(kinds).map(([k, n]) => `${k} ${n}`).join(', ')}), turbor ${boosts}, återsättningar ${resets}`);
   }
+}
+
+// 11d. Minikarta: varje bana och dess genvägar ryms inom kartan med rätt proportioner (kör: npm test karta)
+if (!only || only === 'karta') {
+  const rect = fitMap([{ x: -10, z: -5 }, { x: 10, z: 5 }], 200, 10);
+  const [ax, ay] = rect.map(-10, -5), [bx, by] = rect.map(10, 5);
+  const okRect = Math.abs(ax - 10) < 1e-9 && Math.abs(bx - 190) < 1e-9 && Math.abs((by - ay) - (bx - ax) / 2) < 1e-9 && Math.abs((ay + by) / 2 - 100) < 1e-9;
+  const outside = [];
+  for (const level of [...FIELD_LEVELS]) {
+    const world = createWorld(RAPIER);
+    const T = buildLevel({ world, RAPIER, level }).track;
+    const all = [...T.pts, ...(T.shortcuts || []).flatMap((sc) => sc.path?.pts || [])];
+    const f = fitMap(all, 256, 18);
+    const bad = all.filter((p) => { const [x, y] = f.map(p.x, p.z); return x < 17.9 || x > 238.1 || y < 17.9 || y > 238.1; }).length;
+    if (bad) outside.push(`${level.name} ${bad}`);
+  }
+  check('Minikarta', okRect && outside.length === 0, `rektangel ${okRect ? 'rätt' : 'FEL'}, banor utanför kartan: ${outside.join(', ') || 'inga'} (${FIELD_LEVELS.length} banor)`);
 }
 
 // 12. Upplåsning: startbilar, cuper, snabbspår, tidsutmaning och trasig sparfil

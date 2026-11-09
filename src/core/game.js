@@ -23,8 +23,9 @@ import { Dust } from '../vehicle/dust.js';
 const DUST = { spokstaden: 0xd9b88a, tradgarden: 0xcdbb98, kvarteret: 0xb9ad9a, kryssaren: 0xd8cdbd };
 import { Replay } from '../race/replay.js';
 import { StuntSession } from '../stunt/stunt.js';
-import { renderSplit, direct } from './gameViews.js';
+import { renderSplit, direct, makeSkyTexture } from './gameViews.js';
 import { StuntBonus } from '../race/stuntBonus.js';
+import { Minimap, loadMapOn, carColor } from '../ui/minimap.js';
 
 // ---------------------------------------------------------------------------
 // Game: äger renderare, fysikvärld, nivå, bilar, lopp, kamera och HUD.
@@ -94,6 +95,8 @@ export class Game {
     this.events.on('stunt', (d) => { if (d.car === this.p1) this.hud.stuntPop(d.label, d.gain); });
     this.input = new Input();
     this.hud = new Hud();
+    this.minimap = new Minimap(document.getElementById('minimap'));
+    this.mapOn = loadMapOn();
     this.clock = new THREE.Clock();
     this.acc = 0;
     this.frames = 0;
@@ -212,6 +215,10 @@ export class Game {
     // Stuntbonus och turbomätare bara i vanliga lopp, så att tidskörningens rekord förblir jämförbara
     this.bonus = mode === 'race' ? new StuntBonus({ cars: this.cars, race: this.race, track: this.track, events: this.events }) : null;
     this.hud.setBonus?.(!!this.bonus);
+    // Minikarta i lopp och tidskörning (inte i stuntarenan, demon eller bilvalet)
+    this.mapMode = mode === 'race' || mode === 'timetrial';
+    if (this.mapMode) this.minimap.setTrack(this.track);
+    this.minimap.setVisible(this.mapMode && this.mapOn);
     this.ghost = mode === 'timetrial' ? new Ghost(this) : null;
     // --- Repris: spela in varje lopp och tidskörning ---
     if (this.replay) { this.replay.onEnd = null; this.replay.dispose(); }
@@ -383,6 +390,7 @@ export class Game {
       else if (a === 'flip2' && this.p2) this.reposition(this.p2, true);
       else if (a === 'reposition2' && this.p2) this.reposition(this.p2);
       else if (a === 'help') this.hud.toggleHelp();
+      else if (a === 'map' && this.mapMode) this.hud.message(`Karta: ${(this.mapOn = this.minimap.toggle()) ? 'på' : 'av'}`, { time: 1 });
       else if (a.startsWith('car')) {
         const id = ['rasket', 'glidaren', 'raketen'][+a.slice(3) - 1]; // snabbval: Rookie, Advanced, Pro
         if (id) { this.restart(id); this.hud.message(`${CARS[id].name} · ${CARS[id].cls}`, { time: 1.4 }); }
@@ -452,6 +460,7 @@ export class Game {
     }
     this.hud.update(dt, { race: this.race, racer: this.racer, vehicle: this.player, racers: this.race.racers });
     if (this.bonus) this.hud.bonus(dt, this.p1.stunt, this.racer.fx.boost > 0);
+    if (this.mapMode && this.mapOn) this.minimap.update(dt, this.cars.map((c) => ({ x: c.model.root.position.x, z: c.model.root.position.z, color: carColor(c), me: c === this.p1, p2: c === this.p2 })));
     if (this.stunt) { this.stunt.render(dt, this.clock.elapsedTime); this.hud.stunt({ count: this.stunt.count, total: this.stunt.total, time: this.stunt.time }); }
     this.menu?.tick();
     if (this.p2 && !this.replaying) return this._renderSplit(dt);
@@ -488,22 +497,4 @@ export class Game {
     const loop = () => { requestAnimationFrame(loop); this.frame(); };
     loop();
   }
-}
-
-// Himmel som vertikal gradient: skyGradient = [topp, horisont, (botten)]
-function makeSkyTexture(stops) {
-  const c = document.createElement('canvas');
-  c.width = 4; c.height = 256;
-  const ctx = c.getContext('2d');
-  const g = ctx.createLinearGradient(0, 0, 0, 256);
-  const cols = stops.map((s) => '#' + new THREE.Color(s).getHexString());
-  g.addColorStop(0, cols[0]);
-  g.addColorStop(0.5, cols[1]);
-  g.addColorStop(1, cols[2] ?? cols[1]);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 4, 256);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.mapping = THREE.EquirectangularReflectionMapping;
-  return tex;
 }

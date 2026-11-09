@@ -71,6 +71,15 @@
       body.stunt-mode #turbo { display: none !important; }
       #hud2 .p2turbo { position: absolute; left: 3vh; top: 8vh; color: #ff8a3c; }
 
+      /* Minikarta till höger, under tiderna */
+      #minimap { position: absolute; right: 3vh; top: 22vh; width: 21vh; height: 21vh; display: none;
+        border-radius: 1.4vh; background: radial-gradient(circle, rgba(20,30,90,.45), rgba(5,8,30,.55));
+        border: .35vh solid rgba(201,204,210,.75); box-shadow: 0 .3vh .8vh rgba(0,0,0,.45); }
+      #minimap.on { display: block; }
+      #minimap canvas { width: 100%; height: 100%; display: block; }
+      body.split #minimap { top: 3vh; right: auto; left: 50%; transform: translateX(-50%); width: 15vh; height: 15vh; }
+      body.stunt-mode #minimap { display: none !important; }
+
       /* Uppe till höger: tider */
       #times { position: absolute; right: 3vh; top: 2.2vh; text-align: right; line-height: 1.02; }
       #times .row { margin-bottom: .55em; }
@@ -255,6 +264,7 @@
       </div>
       <div id="pos"><span id="posNum">1</span><sup id="posSuf">st</sup></div>
       <div id="carPanel"><span class="gap" id="gapA">-0m</span><span id="carName">Rasket</span><span class="gap behind" id="gapB">+0m</span><span id="carClass">Rookie</span></div>
+      <div id="minimap"></div>
       <div id="speedo"><div id="speedVal"><span class="num" id="mph">0</span> km/h</div></div>
       <div id="countdown">3</div>
       <div id="message"></div>
@@ -268,7 +278,7 @@
       </div>
       <div id="help">
         <kbd>W</kbd><kbd>S</kbd> gas / broms–back &nbsp; <kbd>A</kbd><kbd>D</kbd> styr &nbsp;
-        <kbd>Mellanslag</kbd>/<kbd>E</kbd> vapen &nbsp; <kbd>Q</kbd> turbo &nbsp; <kbd>F</kbd> tillbaka på vägen &nbsp; <kbd>R</kbd> senaste punkten<br />
+        <kbd>Mellanslag</kbd>/<kbd>E</kbd> vapen &nbsp; <kbd>Q</kbd> turbo &nbsp; <kbd>M</kbd> karta &nbsp; <kbd>F</kbd> tillbaka på vägen &nbsp; <kbd>R</kbd> senaste punkten<br />
         <kbd>C</kbd> kamera &nbsp; <kbd>Esc</kbd> paus (starta om, avsluta) &nbsp; <kbd>H</kbd> hjälp
       </div>
     </div>
