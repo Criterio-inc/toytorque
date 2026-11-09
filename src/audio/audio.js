@@ -237,6 +237,11 @@ class AudioSystem {
       const pl = d.car?.vehicle === this.game.player;
       S('respawn', pl ? {} : this._at(d.car?.vehicle.currPos, 0.6));
     });
+    on('stunt', (d) => { if (d.car?.racer.isPlayer) S('armed'); });
+    on('boost', (d) => {
+      const o = d.car?.racer.isPlayer ? { vol: 1, pan: 0 } : this._at(d.car?.vehicle.currPos, 0.8);
+      S('fire', { ...o, id: 'turbo' });
+    });
     on('ui', (d) => S('ui', { name: d.name }));
   }
 

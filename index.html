@@ -49,6 +49,28 @@
       #weapon::before { left: 50%; top: -6%; width: .45vh; height: 22%; transform: translateX(-50%); box-shadow: 0 6.35vh 0 #c9ccd2; }
       #weapon::after { top: 50%; left: -6%; height: .45vh; width: 22%; transform: translateY(-50%); box-shadow: 6.35vh 0 0 #c9ccd2; }
 
+      /* Turbomätare under vapenrutan, tre steg (stuntbonus) */
+      #turbo { position: absolute; left: 3vh; top: 19.6vh; display: none; gap: .5vh; align-items: center; }
+      #turbo.on { display: flex; }
+      #turbo .lbl { font-size: .8em; margin-right: .4vh; }
+      #turbo kbd { font-style: normal; font-size: .75em; padding: 0 .5vh; border-radius: .4vh; background: rgba(255,255,255,.18); text-shadow: none; }
+      #turbo .seg { width: 3.4vh; height: 1.5vh; border-radius: .5vh; background: rgba(10,14,40,.75); border: .3vh solid #c9ccd2; overflow: hidden; transform: skewX(-14deg); }
+      #turbo .seg i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff8a3c, #ffd23f); transition: width .15s; }
+      #turbo.ready .seg { box-shadow: 0 0 1vh rgba(255,190,60,.7); }
+      #turbo.burn .seg { border-color: #52e4ff; box-shadow: 0 0 1.4vh rgba(82,228,255,.9); }
+      .stuntpop { position: absolute; left: 0; right: 0; text-align: center; animation: stuntpop 1.5s ease-out forwards; }
+      .stuntpop b { display: block; font-size: 4.6vh; color: #ffd23f; letter-spacing: .2vh; }
+      .stuntpop span { display: block; font-size: 2vh; color: #52e4ff; }
+      @keyframes stuntpop {
+        0% { opacity: 0; transform: translateY(2vh) scale(.6); }
+        12% { opacity: 1; transform: translateY(0) scale(1.12); }
+        22% { transform: scale(1); }
+        75% { opacity: 1; }
+        100% { opacity: 0; transform: translateY(-3vh); }
+      }
+      body.stunt-mode #turbo { display: none !important; }
+      #hud2 .p2turbo { position: absolute; left: 3vh; top: 8vh; color: #ff8a3c; }
+
       /* Uppe till höger: tider */
       #times { position: absolute; right: 3vh; top: 2.2vh; text-align: right; line-height: 1.02; }
       #times .row { margin-bottom: .55em; }
@@ -224,6 +246,7 @@
       <div id="stuntBox"><div id="stuntStars">★ 0/20</div><div class="num" id="stuntTime">00:00</div></div>
       <div id="lapBox"><div class="lbl">Lap</div><div class="num" id="lap">1/3</div></div>
       <div id="weapon"></div>
+      <div id="turbo"><div class="lbl">Turbo <kbd>Q</kbd></div><div class="seg"><i></i></div><div class="seg"><i></i></div><div class="seg"><i></i></div></div>
       <div id="times">
         <div class="row"><div class="lbl">Last Lap</div><div class="num" id="tLast">00:00:000</div></div>
         <div class="row"><div class="lbl">Best Lap</div><div class="num" id="tBest">05:00:000</div></div>
@@ -245,7 +268,7 @@
       </div>
       <div id="help">
         <kbd>W</kbd><kbd>S</kbd> gas / broms–back &nbsp; <kbd>A</kbd><kbd>D</kbd> styr &nbsp;
-        <kbd>Mellanslag</kbd>/<kbd>E</kbd> vapen &nbsp; <kbd>F</kbd> tillbaka på vägen &nbsp; <kbd>R</kbd> senaste punkten<br />
+        <kbd>Mellanslag</kbd>/<kbd>E</kbd> vapen &nbsp; <kbd>Q</kbd> turbo &nbsp; <kbd>F</kbd> tillbaka på vägen &nbsp; <kbd>R</kbd> senaste punkten<br />
         <kbd>C</kbd> kamera &nbsp; <kbd>Esc</kbd> paus (starta om, avsluta) &nbsp; <kbd>H</kbd> hjälp
       </div>
     </div>

@@ -1,14 +1,14 @@
 // ---------------------------------------------------------------------------
 // Input: tangentbord och handkontroll → controls-struct + engångshändelser.
 //   W/↑ gas, S/↓ broms/back, A/D ←/→ styr
-//   Mellanslag/E avfyra vapen, F tillbaka mitt på vägen, R senaste punkten, C kamera
+//   Mellanslag/E avfyra vapen, Q turbo ur stuntmätaren, F tillbaka mitt på vägen, R senaste punkten, C kamera
 //   Enter starta om loppet, 1–3 byt bil, L byt bana, H visa/dölj hjälp
 // ---------------------------------------------------------------------------
 
 const ACTIONS = {
-  // Spelare 2 vid delad skärm: piltangenter, höger Shift avfyrar, - vänder, . tillbaka
-  ShiftRight: 'fire2', Slash: 'flip2', Period: 'reposition2',
-  KeyR: 'reposition', KeyF: 'flip', KeyL: 'level', Space: 'fire', KeyE: 'fire', KeyC: 'camera', Enter: 'restart', KeyH: 'help',
+  // Spelare 2 vid delad skärm: piltangenter, höger Shift avfyrar, - vänder, . tillbaka, , turbo
+  ShiftRight: 'fire2', Slash: 'flip2', Period: 'reposition2', Comma: 'boost2',
+  KeyR: 'reposition', KeyF: 'flip', KeyL: 'level', Space: 'fire', KeyE: 'fire', KeyC: 'camera', KeyQ: 'boost', Enter: 'restart', KeyH: 'help',
   Digit1: 'car1', Digit2: 'car2', Digit3: 'car3', Escape: 'pause', KeyP: 'pause',
 };
 const BLOCK = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space']);
@@ -66,7 +66,7 @@ export class Input {
   _pollPadButtons() {
     const pad = this._pad();
     if (!pad) return;
-    const map = { 0: 'fire', 3: 'reposition', 1: 'flip', 4: 'camera', 9: 'restart' };
+    const map = { 0: 'fire', 2: 'boost', 3: 'reposition', 1: 'flip', 4: 'camera', 9: 'restart' };
     for (const [b, a] of Object.entries(map)) {
       const down = !!pad.buttons[b]?.pressed;
       if (down && !this._padPrev[b]) this.queue.push(a);

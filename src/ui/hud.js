@@ -131,6 +131,40 @@ export class Hud {
     this.text('stuntTime', `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`);
   }
 
+  // --- Turbomätare och stuntetiketter (race/stuntBonus.js) ---
+  setBonus(on) {
+    document.getElementById('turbo')?.classList.toggle('on', on);
+    this.cache.turbo = undefined;
+    this._pops?.forEach((p) => p.remove());
+    this._pops = [];
+  }
+
+  // Tre steg som fylls var för sig; ett fullt steg lyser och kan brännas med Q
+  bonus(dt, s, active) {
+    const el = document.getElementById('turbo');
+    if (!el || !s) return;
+    const m = s.meter;
+    const key = `${Math.round(m * 40)}|${active}`;
+    this.set('turbo', key, () => {
+      el.classList.toggle('burn', active);
+      el.classList.toggle('ready', m >= 1);
+      el.querySelectorAll('.seg i').forEach((fill, i) => { fill.style.width = `${Math.max(0, Math.min(1, m - i)) * 100}%`; });
+    });
+  }
+
+  // Etikett som studsar upp i bild och tonar bort. Flera kan synas samtidigt.
+  stuntPop(label, gain) {
+    const root = document.getElementById('hud');
+    if (!root) return;
+    const el = document.createElement('div');
+    el.className = 'stuntpop';
+    el.innerHTML = `<b>${label}</b><span>+${Math.round(gain * 100)} % turbo</span>`;
+    el.style.top = `${24 - (this._pops?.length || 0) * 6}vh`;
+    root.appendChild(el);
+    (this._pops ||= []).push(el);
+    setTimeout(() => { el.remove(); this._pops = this._pops.filter((p) => p !== el); }, 1500);
+  }
+
   setVisible(v) { document.getElementById('hud').style.display = v ? '' : 'none'; }
 
   showHelp(t) { this.helpTimer = t; this.cache.help = undefined; }

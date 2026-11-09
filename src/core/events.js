@@ -19,6 +19,8 @@
 //   impact {car, pos, strength}  krock (strength i m/s hastighetsändring)
 //   land {car, strength}
 //   respawn {car}
+//   stunt {car, kind, label, gain}  luftfärd eller sladd fyllde turbomätaren
+//   boost {car}              ett steg ur turbomätaren bränns
 //   star {index, count, total, pos, all}  stuntläget: stjärna tagen (all = sista)
 //   ui {name}                menyljud: move, select, back
 // ---------------------------------------------------------------------------

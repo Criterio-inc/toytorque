@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { G, groups, GRAVITY } from '../core/physics.js';
 import { WEAPONS, TUNE, rollWeapon, tableColumn } from './defs.js';
 import { WeaponFx, oilGeometry, oilMaterial } from './weaponFx.js';
+import { BONUS } from '../race/stuntBonus.js';
 
 // ---------------------------------------------------------------------------
 // Vapensystemet: pickuper längs banan, roulette, alla vapen och deras
@@ -75,8 +76,11 @@ export class WeaponSystem {
     for (const c of this.cars) {
       const r = c.racer, v = c.vehicle, f = r.fx;
       for (const k in f) if (f[k] > 0) f[k] = Math.max(0, f[k] - dt);
-      v.mods.topMul = (v.baseTopMul ?? 1) * (f.turbo > 0 ? TUNE.turbo.top : 1);
-      v.mods.powerMul = (f.zap > 0 ? 0 : 1) * (f.turbo > 0 ? TUNE.turbo.power : 1);
+      // Stuntturbon (race/stuntBonus.js) staplas inte på turbobatteriet: den starkaste gäller
+      const top = Math.max(f.turbo > 0 ? TUNE.turbo.top : 1, f.boost > 0 ? BONUS.boostTop : 1);
+      const pow = Math.max(f.turbo > 0 ? TUNE.turbo.power : 1, f.boost > 0 ? BONUS.boostPower : 1);
+      v.mods.topMul = (v.baseTopMul ?? 1) * top;
+      v.mods.powerMul = (f.zap > 0 ? 0 : 1) * pow;
       v.mods.gripMul = f.wet > 0 ? 0.55 : 1;
       if (r.weaponCooldown > 0) r.weaponCooldown -= dt;
     }
@@ -553,7 +557,7 @@ export class WeaponSystem {
         }
       }
       if (f.zap > 0) fx.zapped(pos, t, i + 1);
-      if (f.turbo > 0) fx.turbo(pos, quat, v.body.linvel(), dt);
+      if (f.turbo > 0 || f.boost > 0) fx.turbo(pos, quat, v.body.linvel(), dt);
       const bomb = c.racer.bomb > 0;
       if (bomb && !c.bombMark) c.bombMark = makeBombMark(this.group);
       if (c.bombMark) {
@@ -582,7 +586,7 @@ function initRacer(r) {
   r.bombPass = 0;
   r.weaponCooldown = 0;
   r.weaponHeld = 0;
-  r.fx = { zap: 0, turbo: 0, wet: 0, electro: 0 };
+  r.fx = { zap: 0, turbo: 0, wet: 0, electro: 0, boost: 0 };
 }
 
 const elasticOut = (x) => (x >= 1 ? 1 : Math.pow(2, -10 * x) * Math.sin(((x * 10 - 0.75) * 2 * Math.PI) / 3) + 1);

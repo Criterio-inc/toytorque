@@ -21,6 +21,7 @@ import { Race } from '../src/race/race.js';
 import { PathFollower, AiDriver } from '../src/ai/pathFollower.js';
 import { buildField } from '../src/race/field.js';
 import { WeaponSystem } from '../src/weapons/weaponSystem.js';
+import { StuntBonus, BONUS } from '../src/race/stuntBonus.js';
 import { stuntarena, BUILD_STATS } from '../src/level/stuntarena.js';
 import { StuntSession } from '../src/stunt/stunt.js';
 import { EXAMPLES, fromPath } from '../src/editor/storage.js';
@@ -767,6 +768,97 @@ if (!only || only === 'trappa') {
       check(`Trappa ${level.name} ${crawl} m/s`, past && !fell && minUp > 0.5,
         `kant vid ${T.pts[g].x.toFixed(1)},${T.pts[g].z.toFixed(1)} (${T.pts[g].y.toFixed(2)} m), ${past ? 'nere på golvet' : 'kom inte ner'}, minsta upp-y ${minUp.toFixed(2)}${fell ? ', föll under vägen' : ''}`);
     }
+  }
+}
+
+// 11c. Stuntbonus: luft och sladd fyller turbomätaren, turbon bränns (kör: npm test turbo)
+if (!only || only === 'turbo') {
+  // Regler med en låtsasbil: inga fysiksteg, bara läget bilen rapporterar
+  const fake = () => {
+    const v = { grounded: 4, currQuat: { x: 0, y: 0, z: 0, w: 1 }, lv: { x: 0, y: 0, z: 6 }, def: { topSpeed: 10 } };
+    v.body = { linvel: () => v.lv };
+    return { vehicle: v, racer: { finished: false, trackIndex: 0 } };
+  };
+  const got = [];
+  const ev = { emit: (n, d) => got.push(n === 'stunt' ? d.label : n) };
+  const c = fake();
+  const sb = new StuntBonus({ cars: [c], race: { running: true }, events: ev });
+  const tick = (sec) => { for (let t = 0; t < sec; t += STEP) sb.step(STEP); };
+  c.vehicle.grounded = 0; tick(1.0); c.vehicle.grounded = 4; tick(STEP);            // stor luft, rätt väg
+  const afterAir = c.stunt.meter;
+  c.vehicle.grounded = 0; tick(1.0); c.vehicle.currQuat = { x: 0, y: 0, z: 1, w: 0 }; c.vehicle.grounded = 4; tick(STEP); // landar på taket
+  c.vehicle.currQuat = { x: 0, y: 0, z: 0, w: 1 };
+  const afterRoof = c.stunt.meter;
+  c.vehicle.lv = { x: 3, y: 0, z: 6 }; tick(1.0); c.vehicle.lv = { x: 0, y: 0, z: 6 }; tick(0.3); // sladd 1 s
+  const afterDrift = c.stunt.meter;
+  const early = sb.boost(c);
+  c.stunt.meter = 1.2;
+  const ok1 = sb.boost(c), boostT = c.racer.fx.boost, left = c.stunt.meter;
+  const twice = sb.boost(c); // turbo pågår redan
+  check('Turbo: regler',
+    Math.abs(afterAir - 0.6) < 1e-9 && afterRoof === afterAir && Math.abs(afterDrift - 0.9) < 1e-9 && !early && ok1 && boostT === BONUS.boostTime && Math.abs(left - 0.2) < 1e-9 && !twice,
+    `${got.join(', ')}; mätare luft ${afterAir.toFixed(2)}, efter taklandning ${afterRoof.toFixed(2)}, efter sladd ${afterDrift.toFixed(2)}, turbo ${ok1 ? 'ja' : 'nej'} (${boostT} s)`);
+
+  // Riktig fysik på plan mark: en bromssväng ska ge sladdbonus, en vanlig sväng med greppstark bil inte
+  const driftRun = (id, plan) => {
+    const world = flatWorld();
+    const v = new Vehicle(world, RAPIER, CARS[id], { x: 0, y: 0.2, z: 0 });
+    v.helper = 0.4;
+    const car = { vehicle: v, racer: { finished: false, trackIndex: 0 } };
+    const labels = [];
+    const b = new StuntBonus({ cars: [car], race: { running: true }, events: { emit: (n, d) => n === 'stunt' && labels.push(d.label) } });
+    for (let t = 0; t < 5.5; t += STEP) { v.update(STEP, plan(t)); world.step(); v.snapshot(); b.step(STEP); }
+    return labels;
+  };
+  const brakeTurn = (t) => (t < 2.5 ? { throttle: 1, steer: 0 } : t < 2.8 ? { throttle: -1, steer: 1 } : t < 4.5 ? { throttle: 1, steer: 1 } : { throttle: 1, steer: 0 });
+  const straight = () => ({ throttle: 1, steer: 0 });
+  const dGlid = driftRun('glidaren', brakeTurn), dRak = driftRun('rasket', straight);
+  check('Turbo: sladd på plan mark', dGlid.some((l) => l.includes('SLADD')) && dRak.length === 0,
+    `Glidaren bromssväng: ${dGlid.join(', ') || 'ingen'}; Rasket rakt fram: ${dRak.join(', ') || 'ingen'}`);
+
+  // Helt lopp: åtta datorförare med vapen och stuntbonus ska alla gå i mål
+  for (const level of [kvarteret, tradgarden]) {
+    reseed('turbo' + level.id);
+    const world = createWorld(RAPIER);
+    const lvl = buildLevel({ world, RAPIER, level });
+    const T = lvl.track;
+    const race = new Race(T, { laps: 3, countdown: 0.01 });
+    const field = buildField(CARS.rasket, 7, 'normal');
+    field.push({ name: 'Extra', def: CARS.rasket, skill: 0.9, lane: 0, topMul: 1 });
+    const cars = field.map((f, slot) => {
+      const g = T.gridSlot(slot);
+      const v = new Vehicle(world, RAPIER, f.def, { ...g, y: g.y + 0.2 });
+      v.baseTopMul = f.topMul;
+      return { vehicle: v, ai: new AiDriver(T, { skill: f.skill, lane: f.lane }), racer: race.addRacer(v, { name: f.name }) };
+    });
+    const weapons = new WeaponSystem({ world, RAPIER, track: T, race, cars });
+    const kinds = {};
+    let boosts = 0, resets = 0, bad = 0, t = 0, gave = false;
+    const bonus = new StuntBonus({ cars, race, track: T, events: { emit: (n, d) => { if (n === 'stunt') kinds[d.label] = (kinds[d.label] || 0) + 1; else boosts++; } } });
+    const vehicles = cars.map((c) => c.vehicle);
+    for (; t < 360 && !cars.every((c) => c.racer.finished); t += STEP) {
+      weapons.update(STEP);
+      for (const c of cars) c.vehicle.update(STEP, race.canDrive ? c.ai.controls(c.vehicle, STEP, vehicles) : { throttle: 0, steer: 0 });
+      world.step();
+      for (const c of cars) { c.vehicle.snapshot(); const p = c.vehicle.position; if (!Number.isFinite(p.x + p.y + p.z)) bad++; }
+      race.update(STEP);
+      if (race.running && !gave) { gave = true; for (const c of cars) c.stunt.meter = 1; } // ett steg var vid start: används det?
+      bonus.step(STEP);
+      for (const c of cars) {
+        const p = c.vehicle.position;
+        if (p.y < -2 || Math.abs(p.x) > lvl.half || Math.abs(p.z) > lvl.half || c.racer.stuckTime > 4 || c.racer.fell) {
+          resets++;
+          const rp = race.respawnPose(c.racer);
+          c.vehicle.place({ ...rp, y: rp.y + 0.2 });
+          race.resyncRacer(c.racer);
+          c.ai.reset();
+        }
+      }
+    }
+    const done = cars.filter((c) => c.racer.finished).length;
+    const stunts = Object.values(kinds).reduce((a, b) => a + b, 0);
+    check(`Turbo: lopp ${level.name}`, done === 8 && bad === 0 && stunts > 0 && boosts >= 6,
+      `i mål ${done}/8 på ${t.toFixed(0)} s, stunts ${stunts} (${Object.entries(kinds).map(([k, n]) => `${k} ${n}`).join(', ')}), turbor ${boosts}, återsättningar ${resets}`);
   }
 }
 

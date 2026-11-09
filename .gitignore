@@ -8,3 +8,6 @@ dist/
 _ref/
 scripts/dev/
 .claude/worktrees/
+
+# Arbetsanteckningar för spelbygget (lokala)
+docs/SPELBYGGET.md

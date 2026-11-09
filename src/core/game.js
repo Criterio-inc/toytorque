@@ -23,6 +23,8 @@ import { Dust } from '../vehicle/dust.js';
 const DUST = { spokstaden: 0xd9b88a, tradgarden: 0xcdbb98, kvarteret: 0xb9ad9a, kryssaren: 0xd8cdbd };
 import { Replay } from '../race/replay.js';
 import { StuntSession } from '../stunt/stunt.js';
+import { renderSplit, direct } from './gameViews.js';
+import { StuntBonus } from '../race/stuntBonus.js';
 
 // ---------------------------------------------------------------------------
 // Game: äger renderare, fysikvärld, nivå, bilar, lopp, kamera och HUD.
@@ -88,6 +90,8 @@ export class Game {
     this.shakeOn = true; // Inställningar: Skakning
     this.events.on('explode', (d) => { if (!d.replay) this._shake(d.pos, 0.3 + 0.55 * (d.size ?? 0.6), null); });
     this.events.on('hit', (d) => this._shake(null, d.kind === 'blast' ? 0.25 : 0.4, d.car));
+    // --- Stuntbonus: etikett för spelare 1 ---
+    this.events.on('stunt', (d) => { if (d.car === this.p1) this.hud.stuntPop(d.label, d.gain); });
     this.input = new Input();
     this.hud = new Hud();
     this.clock = new THREE.Clock();
@@ -205,6 +209,9 @@ export class Game {
     this.racer = pc.racer;
     this.vehicles = this.cars.map((c) => c.vehicle);
     this.weapons = new WeaponSystem({ scene: this.levelGroup, world: this.world, RAPIER: this.RAPIER, track: this.track, race: this.race, cars: this.cars, events: quiet ? null : this.events, enabled: this.opts.weapons && mode !== 'timetrial' && mode !== 'showroom' && !stunt });
+    // Stuntbonus och turbomätare bara i vanliga lopp, så att tidskörningens rekord förblir jämförbara
+    this.bonus = mode === 'race' ? new StuntBonus({ cars: this.cars, race: this.race, track: this.track, events: this.events }) : null;
+    this.hud.setBonus?.(!!this.bonus);
     this.ghost = mode === 'timetrial' ? new Ghost(this) : null;
     // --- Repris: spela in varje lopp och tidskörning ---
     if (this.replay) { this.replay.onEnd = null; this.replay.dispose(); }
@@ -341,6 +348,7 @@ export class Game {
       if (car.impactCool > 0) car.impactCool -= STEP;
     }
     this.race.update(STEP);
+    this.bonus?.step(STEP);
     this.ghost?.step();
     this.replay?.record(STEP); // repris
     // --- Stuntläge: loopstyrning och stjärnor (inget "fel håll" i en arena) ---
@@ -370,6 +378,8 @@ export class Game {
       else if (a === 'level') this.nextLevel();
       else if (a === 'fire' && !this.paused) this.weapons.fire(this.p1 || this.cars[this.cars.length - 1]);
       else if (a === 'fire2' && this.p2 && !this.paused) this.weapons.fire(this.p2);
+      else if (a === 'boost' && !this.paused) this.bonus?.boost(this.p1);
+      else if (a === 'boost2' && this.p2 && !this.paused) this.bonus?.boost(this.p2);
       else if (a === 'flip2' && this.p2) this.reposition(this.p2, true);
       else if (a === 'reposition2' && this.p2) this.reposition(this.p2);
       else if (a === 'help') this.hud.toggleHelp();
@@ -441,77 +451,15 @@ export class Game {
       if (this.racer.lap === this.race.laps && !this.racer.finished) this.hud.message('FINAL LAP!', { time: 2 });
     }
     this.hud.update(dt, { race: this.race, racer: this.racer, vehicle: this.player, racers: this.race.racers });
+    if (this.bonus) this.hud.bonus(dt, this.p1.stunt, this.racer.fx.boost > 0);
     if (this.stunt) { this.stunt.render(dt, this.clock.elapsedTime); this.hud.stunt({ count: this.stunt.count, total: this.stunt.total, time: this.stunt.time }); }
     this.menu?.tick();
     if (this.p2 && !this.replaying) return this._renderSplit(dt);
     this.post.render(this.scene, this.camera);
   }
 
-  // Delad skärm: spelare 1 överst, spelare 2 nederst (utan efterbehandling)
-  _renderSplit(dt) {
-    const r = this.renderer;
-    const w = window.innerWidth, h = window.innerHeight, hh = Math.floor(h / 2);
-    const car = this.p2, root = car.model.root, rs = this.race.state;
-    this.chase2.update(dt, root.position, root.quaternion, car.vehicle.body.linvel(), car.vehicle.speed, car.vehicle.def.topSpeed, {
-      phase: rs === 'intro' ? 'intro' : car.racer.finished ? 'finish' : 'race',
-      introLeft: this.race.intro, introLen: this.race.introLen, gridCenter: this.gridCenter,
-    });
-    this.camera.aspect = this.camera2.aspect = w / hh;
-    this.camera.updateProjectionMatrix();
-    this.camera2.updateProjectionMatrix();
-    this.hud2Update(dt);
-    r.setScissorTest(true);
-    r.setViewport(0, hh, w, h - hh); r.setScissor(0, hh, w, h - hh);
-    r.render(this.scene, this.camera);
-    r.setViewport(0, 0, w, hh); r.setScissor(0, 0, w, hh);
-    r.render(this.scene, this.camera2);
-    r.setScissorTest(false);
-    r.setViewport(0, 0, w, h);
-  }
-
-  // Liten HUD för spelare 2 i nedre halvan
-  hud2Update() {
-    let el = document.getElementById('hud2');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'hud2';
-      document.body.appendChild(el);
-    }
-    const r = this.p2.racer, v = this.p2.vehicle;
-    const ord = ordinal;
-    const w = r.weapon ? `⚡ ${r.weapon.id}${r.weapon.shots > 1 ? ' ×' + r.weapon.shots : ''}` : r.roulette > 0 ? '⚡ …' : '';
-    const txt = `<div class="p2pos">${r.position}<sup>${ord(r.position)}</sup></div><div class="p2lap">Lap ${Math.min(r.lap, this.race.laps)}/${this.race.laps}</div><div class="p2w">${w}</div><div class="p2spd">${Math.round(Math.abs(v.speed) * 3.6)} km/h</div><div class="p2name">Spelare 2</div>`;
-    if (el._t !== txt) { el.innerHTML = txt; el._t = txt; }
-  }
-
-  // Filmkamera bakom menyn: följer en bil i taget, ibland från en fast
-  // punkt vid banan som bilen susar förbi.
-  _direct(dt) {
-    const D = this.director;
-    D.t -= dt;
-    if (D.t <= 0 || !D.car) {
-      D.car = this.cars[Math.floor(Math.random() * this.cars.length)];
-      D.kind = Math.random() < 0.45 ? 'trackside' : 'chase';
-      D.t = D.kind === 'trackside' ? 4.5 : 6;
-      this.chase.snap = true;
-      if (D.kind === 'trackside') {
-        // Ställ kameran en bit fram längs banan, vid sidan av vägen
-        const T = this.track, i = D.car.racer.trackIndex >= 0 ? D.car.racer.trackIndex : 0;
-        const side = Math.random() < 0.5 ? 1 : -1;
-        const p = T.poseAt(i + Math.round(9 / T.spacing), side * (T.roadHalf + 0.6));
-        D.spot = new THREE.Vector3(p.x, p.y + 0.35 + Math.random() * 0.5, p.z);
-      }
-    }
-    if (D.kind === 'trackside') {
-      const target = D.car.model.root.position;
-      this.camera.position.copy(D.spot);
-      this.camera.lookAt(target.x, target.y + 0.05, target.z);
-      const d = D.spot.distanceTo(target);
-      this.camera.fov = Math.max(18, Math.min(55, 50 - d * 2.5)); // zoomar in när bilen är långt bort
-      this.camera.updateProjectionMatrix();
-    }
-    return D.car;
-  }
+  _renderSplit(dt) { renderSplit(this, dt); }
+  _direct(dt) { return direct(this, dt); }
 
   // --- Repris -------------------------------------------------------------------
   // Spela upp det senaste loppet. onEnd anropas när reprisen avslutas
