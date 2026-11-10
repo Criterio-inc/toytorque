@@ -37,6 +37,33 @@ export function attachDebug(game) {
       r.weaponCooldown = 0;
       return game.weapons.fire(car);
     },
+    // Stillbild för jämförelser: ställ spelarens bil pct procent in på varvet
+    // och frys loppet. Samma tal ger samma bild. Även ?shot=pct i adressen,
+    // med &vy=fram eller &vy=bak för en närbild på bilen.
+    shot(pct = 25, view = null) {
+      game.race.skipIntro();
+      this.startRace();
+      const T = game.track, i = Math.round((pct / 100) * T.N) % T.N;
+      const p = T.poseAt(i, 0);
+      car().place({ ...p, y: p.y + 0.15 });
+      for (let k = 0; k < 90; k++) game.step({ throttle: 0, steer: 0 });
+      game.chase.snap = true;
+      game.paused = true;
+      game.hud.helpTimer = 0;
+      for (let k = 0; k < 40; k++) game.render(1 / 60, 1);
+      if (view) {
+        // Närbild på bilen: snett framifrån eller snett bakifrån, kameran låst
+        const m = car().currQuat, c = car().currPos, cam = game.camera;
+        const off = view === 'bak' ? [0.5, 0.26, -0.72] : [-0.52, 0.24, 0.7];
+        cam.position.set(...off).applyQuaternion(m).add(c);
+        cam.fov = 38; cam.updateProjectionMatrix();
+        cam.lookAt(c.x, c.y + 0.03, c.z);
+        game.chase.update = () => {};
+        document.getElementById('hud').style.display = 'none';
+        game.render(0, 1);
+      }
+      return this.state();
+    },
     // Ritanrop för en bildruta (inklusive skuggor och efterbehandling)
     calls() {
       const info = game.renderer.info;
@@ -47,4 +74,6 @@ export function attachDebug(game) {
       return n;
     },
   };
+  const shot = new URLSearchParams(location.search).get('shot');
+  if (shot) setTimeout(() => window.DBG.shot(+shot, new URLSearchParams(location.search).get('vy')), 1200);
 }

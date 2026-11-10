@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bumpFrom } from '../level/bump.js';
 import { G, groups, GRAVITY } from '../core/physics.js';
 
 // ---------------------------------------------------------------------------
@@ -617,8 +618,9 @@ export function addUnderlay(world, RAPIER, data, i0, i1, half, drop = 0.008, dip
 // --- Grafik --------------------------------------------------------------------
 export function buildTrackMesh(scene, data, theme = {}) {
   const group = new THREE.Group();
+  const roadMap = makeRoadTexture(theme.road ?? '#3a3d45');
   const roadMat = new THREE.MeshStandardMaterial({
-    map: makeRoadTexture(theme.road ?? '#3a3d45'), roughness: theme.roadRough ?? 0.75,
+    map: roadMap, normalMap: bumpFrom(roadMap, theme.roadBump ?? 1.6), roughness: theme.roadRough ?? 0.75,
     polygonOffset: true, polygonOffsetFactor: -2,
   });
   meshFor(data, theme, group, roadMat);

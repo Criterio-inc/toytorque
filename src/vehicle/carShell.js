@@ -12,7 +12,26 @@ import { prep, merge } from './carParts.js';
 //   v 0.80..0.98     nosens (u 0.01..0.47) och aktern (u 0.53..0.99) gavlar
 // ---------------------------------------------------------------------------
 
-const N = 17; // punkter per tvärsnitt
+const N = 17; // nyckelpunkter per tvärsnitt
+const SUB = 4; // mjuka mellanpunkter per nyckelsträcka (rundar tak, skuldror och hörn)
+const NF = (N - 1) * SUB + 1;
+
+// Mjuk kurva genom tvärsnittets nyckelpunkter (Catmull-Rom). Kurvan går
+// genom varje nyckelpunkt, så formen och lackeringens läge ändras inte.
+function smoothSection(S) {
+  const out = [];
+  const P = (i) => S[Math.max(0, Math.min(N - 1, i))];
+  for (let k = 0; k < N - 1; k++) {
+    const p0 = P(k - 1), p1 = P(k), p2 = P(k + 1), p3 = P(k + 2);
+    for (let j = 0; j < SUB; j++) {
+      const t = j / SUB, t2 = t * t, t3 = t2 * t;
+      const f = (a, b, c, d) => 0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (3 * b - a - 3 * c + d) * t3);
+      out.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])]);
+    }
+  }
+  out.push(S[N - 1]);
+  return out;
+}
 const SV = 0.62;
 const WING_V = [0.645, 0.775];
 const NOSE = [0.01, 0.47, 0.8, 0.98];
@@ -289,13 +308,14 @@ export function buildShell(d) {
 
   // Loft (indexerad för mjuka normaler)
   const pos = [], uv = [], idx = [];
-  sections.forEach((S, i) => {
+  const fine = sections.map(smoothSection);
+  fine.forEach((S, i) => {
     const u = uOf(st[i]);
-    for (let k = 0; k < N; k++) { pos.push(S[k][0], S[k][1], st[i]); uv.push(u, vk[k]); }
+    for (let k = 0; k < NF; k++) { pos.push(S[k][0], S[k][1], st[i]); uv.push(u, vAt(k / SUB)); }
   });
   for (let i = 0; i < st.length - 1; i++) {
-    for (let k = 0; k < N - 1; k++) {
-      const a = i * N + k, b = (i + 1) * N + k, c = a + 1, e = b + 1;
+    for (let k = 0; k < NF - 1; k++) {
+      const a = i * NF + k, b = (i + 1) * NF + k, c = a + 1, e = b + 1;
       idx.push(a, c, b, b, c, e);
     }
   }
@@ -306,32 +326,47 @@ export function buildShell(d) {
   loft.computeVertexNormals();
   const parts = [prep(loft, null, true)];
 
-  // Gavlar (nos och akter) med plan uv-projektion
+  // Gavlar (nos och akter): rundade i stället för platta. Kanten dras inåt i
+  // en kvartsbåge innan gaveln sluts, och bilden projiceras rakt på, så att
+  // lampor och grill hamnar där de målats.
   const cap = (S, z, rect, front) => {
     const xmax = Math.max(...S.map((p) => Math.abs(p[0])));
     const ys = S.map((p) => p[1]);
     const ymin = Math.min(...ys), ymax = Math.max(...ys);
     const cy = (ymin + ymax) / 2;
-    const P = [], U = [];
-    const put = (x, y) => {
-      P.push(x, y, z);
+    const RINGS = 5, DEPTH = 0.016, SHRINK = 0.24, M = S.length;
+    const P = [], U = [], I = [];
+    const put = (x, y, zz) => {
+      P.push(x, y, zz);
       const ux = front ? x : -x;
       U.push(lerp(rect[0], rect[1], (ux / xmax + 1) / 2), lerp(rect[2], rect[3], (y - ymin) / (ymax - ymin)));
     };
-    const ring = [...S, S[0]];
-    for (let k = 0; k < ring.length - 1; k++) {
-      const [a, b] = front ? [ring[k + 1], ring[k]] : [ring[k], ring[k + 1]];
-      put(0, cy); put(a[0], a[1]); put(b[0], b[1]);
+    for (let j = 0; j <= RINGS; j++) {
+      const t = (j / RINGS) * Math.PI / 2;
+      const sc = 1 - SHRINK * (1 - Math.cos(t)), dz = (front ? 1 : -1) * DEPTH * Math.sin(t);
+      for (const [x, y] of S) put(x * sc, cy + (y - cy) * sc, z + dz);
     }
+    const tri = (a, b, c) => (front ? I.push(a, b, c) : I.push(a, c, b));
+    for (let j = 0; j < RINGS; j++) {
+      for (let k = 0; k < M; k++) {
+        const k1 = (k + 1) % M, o = j * M, n = (j + 1) * M;
+        tri(o + k1, o + k, n + k);
+        tri(o + k1, n + k, n + k1);
+      }
+    }
+    const c = P.length / 3, last = RINGS * M;
+    put(0, cy, z + (front ? 1 : -1) * DEPTH);
+    for (let k = 0; k < M; k++) tri(c, last + (k + 1) % M, last + k);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+    g.setIndex(I);
     g.computeVertexNormals();
     return { g, xmax, ymin, ymax };
   };
-  const nose = cap(sections[0], zFront, NOSE, true);
-  const tail = cap(sections[sections.length - 1], zRear, TAIL, false);
-  parts.push(nose.g, tail.g);
+  const nose = cap(fine[0], zFront, NOSE, true);
+  const tail = cap(fine[fine.length - 1], zRear, TAIL, false);
+  parts.push(prep(nose.g, null, true), prep(tail.g, null, true));
 
   // Toppens höjd vid (z, x), för fästen och antenn
   const topAt = (z, x = 0) => {
