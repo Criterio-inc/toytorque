@@ -91,3 +91,32 @@ export function makeSkyTexture(stops) {
   tex.mapping = THREE.EquirectangularReflectionMapping;
   return tex;
 }
+
+// Nivåns ljus (valfritt i nivådatan):
+//   lighting: { sun: {color, intensity, offset:[x,y,z]}, hemi: {sky, ground, intensity},
+//               exposure, envIntensity, shadow: {range, size} }
+// shadow.range är hur långt från bilen (m) skuggor ritas. Stora utomhusbanor
+// behöver mer än standardvärdet för att träd och hus längre fram ska skugga vägen.
+export function applyLighting(g, Lt) {
+  const sun = Lt.sun || {}, hemi = Lt.hemi || {}, sh = Lt.shadow || {};
+  g.sun.color.set(sun.color ?? 0xfff1dc);
+  g.sun.intensity = sun.intensity ?? 2.1;
+  g.sunOffset.set(...(sun.offset ?? [14, 26, 9]));
+  g.hemi.color.set(hemi.sky ?? 0xfff6e8);
+  g.hemi.groundColor.set(hemi.ground ?? 0x6d6457);
+  g.hemi.intensity = hemi.intensity ?? 0.75;
+  g.renderer.toneMappingExposure = Lt.exposure ?? 1.05;
+  g.scene.environmentIntensity = Lt.envIntensity ?? 0.55;
+  const range = sh.range ?? 7, size = sh.size ?? 2048;
+  const sc = g.sun.shadow.camera;
+  sc.left = sc.bottom = -range; sc.right = sc.top = range;
+  // Större skuggkarta har grövre punkter: mindre djupförskjutning så att bilarna behåller skuggan under sig
+  g.sun.shadow.bias = range > 10 ? -0.00012 : -0.0004;
+  g.sun.shadow.normalBias = range > 10 ? 0.03 : 0.02;
+  sc.updateProjectionMatrix();
+  if (g.sun.shadow.mapSize.x !== size) {
+    g.sun.shadow.mapSize.set(size, size);
+    g.sun.shadow.map?.dispose();
+    g.sun.shadow.map = null;
+  }
+}

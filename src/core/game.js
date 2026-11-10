@@ -23,7 +23,8 @@ import { Dust } from '../vehicle/dust.js';
 const DUST = { spokstaden: 0xd9b88a, tradgarden: 0xcdbb98, kvarteret: 0xb9ad9a, kryssaren: 0xd8cdbd };
 import { Replay } from '../race/replay.js';
 import { StuntSession } from '../stunt/stunt.js';
-import { renderSplit, direct, makeSkyTexture } from './gameViews.js';
+import { renderSplit, direct, makeSkyTexture, applyLighting } from './gameViews.js';
+import { makeSkyDome } from './sky.js';
 import { StuntBonus } from '../race/stuntBonus.js';
 import { Minimap, loadMapOn, carColor } from '../ui/minimap.js';
 
@@ -165,7 +166,10 @@ export class Game {
     this.scene.background?.isTexture && this.scene.background.dispose();
     this.scene.background = L.skyGradient ? makeSkyTexture(L.skyGradient) : new THREE.Color(L.sky);
     this.scene.fog = new THREE.Fog(L.fog.color ?? L.sky, L.fog.near, L.fog.far);
-    this._applyLighting(L.lighting || {});
+    applyLighting(this, L.lighting || {});
+    // Himmelskupol med moln och sol (utomhusbanor som ber om det)
+    this.sky = L.skyDome ? makeSkyDome({ haze: L.fog.color ?? L.sky, ...L.skyDome }, L.lighting?.sun?.offset, L.lighting?.sun?.color) : null;
+    if (this.sky) this.levelGroup.add(this.sky);
     this.track = this.level.track;
     this.trackGroup = this.level.trackGroup;
 
@@ -268,21 +272,6 @@ export class Game {
       const k = Math.max(0, 1 - d / 5);
       if (k > 0) cam.addShake(amount * k * k);
     }
-  }
-
-  // Nivåns ljus (valfritt i nivådatan):
-  //   lighting: { sun: {color, intensity, offset:[x,y,z]}, hemi: {sky, ground, intensity},
-  //               exposure, envIntensity }
-  _applyLighting(Lt) {
-    const sun = Lt.sun || {}, hemi = Lt.hemi || {};
-    this.sun.color.set(sun.color ?? 0xfff1dc);
-    this.sun.intensity = sun.intensity ?? 2.1;
-    this.sunOffset.set(...(sun.offset ?? [14, 26, 9]));
-    this.hemi.color.set(hemi.sky ?? 0xfff6e8);
-    this.hemi.groundColor.set(hemi.ground ?? 0x6d6457);
-    this.hemi.intensity = hemi.intensity ?? 0.75;
-    this.renderer.toneMappingExposure = Lt.exposure ?? 1.05;
-    this.scene.environmentIntensity = Lt.envIntensity ?? 0.55;
   }
 
   _addCar(vehicle, ai, name, isPlayer) {
@@ -433,6 +422,8 @@ export class Game {
       pr.mesh.quaternion.set(r.x, r.y, r.z, r.w);
     }
     this.trackGroup?.userData.animate?.(this.clock.elapsedTime);
+    this.sky?.userData.tick(this.clock.elapsedTime);
+    this.post.setSpeed(Math.abs(this.player.speed) / this.player.def.topSpeed);
     this.weapons.lowFx = !this.post.enabled; // Grafik: Enkel ger glesare vapeneffekter
     this.weapons.render(dt);
     this.skids.flush();

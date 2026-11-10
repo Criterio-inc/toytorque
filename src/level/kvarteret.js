@@ -2,7 +2,7 @@ import {
   HoodBatch, makeGround, addTrackSurfaces, addTrackPaint, addTrackSidewalks, addStreet, addStreetPaint,
   addHouse, addOpenGarage, addTree, addHedge, addPicketFence, addGardenWall, addLamp, addMailbox, addHydrant,
   addBin, addBarricade, addBrickStack, addCar, addSwingSet, addSlide, addSandbox, addIsland, addFarHouse,
-  addFarTrees, addClouds, addLooseBall, addPlankFence, addCone, addBoomGate, addBooth, addDigger, addDirtPatch,
+  addFarTrees, addLooseBall, addPlankFence, addCone, addBoomGate, addBooth, addDigger, addDirtPatch,
   addDirtPile, addTunnel, fitShortcutOpenings, VERGE, WALK, rng,
 } from './hoodArt.js';
 
@@ -43,13 +43,17 @@ export const kvarteret = {
   laps: 3,
   sky: 0x9fcdf2,
   skyGradient: [0x2b78d4, 0xa9d5f4, 0xe4efe6],
-  fog: { near: 70, far: 185, color: 0xc9deec },
+  fog: { near: 95, far: 230, color: 0xbfd9f0 },
   lighting: {
-    sun: { color: 0xffe1b4, intensity: 2.9, offset: [-17, 22, 12] },
-    hemi: { sky: 0xd2e8ff, ground: 0x6b8a48, intensity: 0.95 },
+    // Låg eftermiddagssol: långa skuggor från träd och hus över vägen
+    sun: { color: 0xffe2b8, intensity: 3.5, offset: [-24, 15, 13] },
+    hemi: { sky: 0x9cc4ff, ground: 0x4c6238, intensity: 0.42 },
     exposure: 1.05,
-    envIntensity: 0.5,
+    envIntensity: 0.45,
+    shadow: { range: 24, size: 4096 },
   },
+  skyDome: { top: 0x0f55c4, horizon: 0x7fbdf2, cloud: 0xfffaf0, cloudShade: 0x8fa6c6, coverage: 0.46 },
+  look: { ao: 1, speedBlur: 1, sharpen: 0.35, contrast: 1.14, saturation: 1.16, warmth: 0.025, bloom: 0.28 },
   floor: { size: 180 },
 
   trackTheme: { road: '#505154', roadRough: 0.92, side: 0xa58358, pillar: 0x8a6b45, barrierA: 0xc9c6bf, barrierB: 0xbfbcb4 },
@@ -493,7 +497,7 @@ function buildHood({ scene, world, RAPIER, track }) {
     addFarTrees(B, far);
     B.flush(scene);
   }
-  addClouds(scene, { count: 11, dist: 175 });
+  // Molnen ritas av himmelskupolen (skyDome) i stället för platta skyltar
 
   // Lösa fotbollar vid trottoarkanten
   const loose = [];

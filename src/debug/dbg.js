@@ -37,6 +37,21 @@ export function attachDebug(game) {
       r.weaponCooldown = 0;
       return game.weapons.fire(car);
     },
+    // Stillbild för jämförelser: ställ spelarens bil pct procent in på varvet
+    // och frys loppet. Samma tal ger samma bild. Även ?shot=pct i adressen.
+    shot(pct = 25) {
+      game.race.skipIntro();
+      this.startRace();
+      const T = game.track, i = Math.round((pct / 100) * T.N) % T.N;
+      const p = T.poseAt(i, 0);
+      car().place({ ...p, y: p.y + 0.15 });
+      for (let k = 0; k < 90; k++) game.step({ throttle: 0, steer: 0 });
+      game.chase.snap = true;
+      game.paused = true;
+      game.hud.helpTimer = 0;
+      for (let k = 0; k < 40; k++) game.render(1 / 60, 1);
+      return this.state();
+    },
     // Ritanrop för en bildruta (inklusive skuggor och efterbehandling)
     calls() {
       const info = game.renderer.info;
@@ -47,4 +62,6 @@ export function attachDebug(game) {
       return n;
     },
   };
+  const shot = new URLSearchParams(location.search).get('shot');
+  if (shot) setTimeout(() => window.DBG.shot(+shot), 1200);
 }
