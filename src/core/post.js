@@ -65,6 +65,13 @@ export class Post {
     // Hörnskuggor: mörkare där ytor möts och under bilarna. Styrkan sätts per bana i setLook.
     this.ao = new GTAOPass(scene, camera, size.x, size.y, undefined, { radius: 0.45, distanceExponent: 1.6, thickness: 0.6, scale: 1.1, samples: 12 });
     this.ao.enabled = false;
+    // Urklippta ytor (bladtofsar, ris) ritas som hela rutor i hörnskuggornas djupbild
+    // och ger då mörka fyrkanter runt sig. De hålls utanför den bilden.
+    const ao = this.ao;
+    ao.overrideVisibility = () => scene.traverse((o) => {
+      ao._visibilityCache.set(o, o.visible);
+      if (o.isPoints || o.isLine || (o.isMesh && o.material?.alphaTest > 0)) o.visible = false;
+    });
     this.composer.addPass(this.ao);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
