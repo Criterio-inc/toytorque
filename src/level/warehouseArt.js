@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { G, groups } from '../core/physics.js';
+import { bumpFrom } from './bump.js';
 
 // ---------------------------------------------------------------------------
 // Procedurell grafik för leksakslagret: betonggolv med målade linjer, höga
@@ -278,7 +279,7 @@ export function makeConcreteFloor(scene, world, RAPIER, { size, y = 0, lines = t
   rough.needsUpdate = true;
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(size, size),
-    new THREE.MeshStandardMaterial({ map, roughnessMap: rough, roughness: 0.4, metalness: 0, envMapIntensity: 0.8 })
+    new THREE.MeshStandardMaterial({ map, normalMap: bumpFrom(map, 2.5), roughnessMap: rough, roughness: 0.4, metalness: 0, envMapIntensity: 0.8 })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = y;

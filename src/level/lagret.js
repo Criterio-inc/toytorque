@@ -17,6 +17,13 @@ export const lagret = {
   laps: 3,
   sky: 0x9fa6ad,
   fog: { near: 30, far: 85 },
+  // Ljus snett in genom takfönstren: pelare, ställ och lådor skuggar golvet
+  lighting: {
+    sun: { color: 0xfff0d8, intensity: 2.9, offset: [16, 22, 8] },
+    hemi: { sky: 0xeef2f6, ground: 0x6d6457, intensity: 0.5 },
+    shadow: { range: 22, size: 2048 },
+  },
+  look: { ao: 0.9, contrast: 1.12 },
   floor: { size: 74, tile: 1.2, grip: 1.0, colorA: '#9a9c9e', colorB: '#919396', grout: '#7d7f82', gloss: 0.32 },
   walls: { height: 9, color: 0xb9b3a6 },
 

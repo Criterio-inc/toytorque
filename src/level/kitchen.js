@@ -37,11 +37,14 @@ export const kitchen = {
   sky: 0xf3ead8,
   fog: { near: 26, far: 70, color: 0xf1e7d6 },
   lighting: {
-    sun: { color: 0xffe6c2, intensity: 2.4, offset: [-8, 18, 14] },
-    hemi: { sky: 0xfff3e2, ground: 0x8a7458, intensity: 0.85 },
-    exposure: 1.0,
+    // Lågt ljus in från fönstren: möbler och lister kastar långa skuggor över golvet
+    sun: { color: 0xffe2b8, intensity: 3.4, offset: [-18, 14, 12] },
+    hemi: { sky: 0xfff3e2, ground: 0x8a7458, intensity: 0.5 },
+    shadow: { range: 18, size: 2048 },
+    exposure: 0.84, // det ljusa golvet blev annars helt vitt och rutmönstret försvann
     envIntensity: 0.6,
   },
+  look: { ao: 0.9, contrast: 1.2, saturation: 1.22, bloom: 0.3 },
   floor: { size: 44 },
 
   // Låga lister i ljus ek som kantvallar
