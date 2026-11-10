@@ -21,6 +21,7 @@
 //   respawn {car}
 //   stunt {car, kind, label, gain}  luftfärd eller sladd fyllde turbomätaren
 //   boost {car}              ett steg ur turbomätaren bränns
+//   rewind {car, phase, left}  spelaren spolar tillbaka sin bil (phase 'start' eller 'end')
 //   star {index, count, total, pos, all}  stuntläget: stjärna tagen (all = sista)
 //   ui {name}                menyljud: move, select, back
 // ---------------------------------------------------------------------------

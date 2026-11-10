@@ -23,6 +23,7 @@ import { buildField } from '../src/race/field.js';
 import { WeaponSystem } from '../src/weapons/weaponSystem.js';
 import { StuntBonus, BONUS } from '../src/race/stuntBonus.js';
 import { fitMap } from '../src/ui/minimap.js';
+import { Rewind, REWIND } from '../src/race/rewind.js';
 import { stuntarena, BUILD_STATS } from '../src/level/stuntarena.js';
 import { StuntSession } from '../src/stunt/stunt.js';
 import { EXAMPLES, fromPath } from '../src/editor/storage.js';
@@ -861,6 +862,49 @@ if (!only || only === 'turbo') {
     check(`Turbo: lopp ${level.name}`, done === 8 && bad === 0 && stunts > 0 && boosts >= 6,
       `i mål ${done}/8 på ${t.toFixed(0)} s, stunts ${stunts} (${Object.entries(kinds).map(([k, n]) => `${k} ${n}`).join(', ')}), turbor ${boosts}, återsättningar ${resets}`);
   }
+}
+
+// 11e. Spola tillbaka: bilen backar längs sitt eget spår och får tillbaka farten (kör: npm test spola)
+if (!only || only === 'spola') {
+  const world = flatWorld();
+  const v = new Vehicle(world, RAPIER, CARS.glidaren, { x: 0, y: 0.2, z: 0 });
+  const car = { vehicle: v, racer: { finished: false, trackIndex: 5, lastValidIndex: 5, nextCp: 0 } };
+  const race = { running: true };
+  const got = [];
+  const rw = new Rewind({ cars: [car], race, events: { emit: (n, d) => got.push(d.phase) } });
+  const trail = [];
+  let t = 0;
+  const run = (sec, ctl) => { for (const end = t + sec; t < end; t += STEP) { v.update(STEP, car.rewinding ? { throttle: 0, steer: 0 } : ctl); world.step(); rw.step(STEP); v.snapshot(); trail.push([t, v.position.x, v.position.z]); } };
+  run(0.5, { throttle: 1, steer: 0 });
+  const tooEarly = rw.start(car); // mindre än en sekund sparad
+  run(4.5, { throttle: 1, steer: 0 });
+  const tCrash = t, speedBefore = Math.abs(v.speed);
+  // Krasch: bilen kastas upp i luften på taket, långt åt sidan
+  v.body.setTranslation({ x: 9, y: 2, z: v.position.z }, true);
+  v.body.setRotation({ x: 0, y: 0, z: 1, w: 0 }, true);
+  run(0.4, { throttle: 0, steer: 0 });
+  const tStart = t;
+  const ok = rw.start(car), twice = rw.start(car);
+  while (car.rewinding && t < tStart + 5) run(STEP, { throttle: 1, steer: 0 });
+  const took = t - tStart;
+  const lv = v.body.linvel(), q = v.body.rotation();
+  const speedAfter = Math.hypot(lv.x, lv.z), up = 1 - 2 * (q.x * q.x + q.z * q.z);
+  // Var var bilen tre sekunder före spolningen?
+  const want = trail.find((s) => s[0] >= tStart - REWIND.back);
+  const miss = Math.hypot(v.position.x - want[1], v.position.z - want[2]);
+  run(1.5, { throttle: 1, steer: 0 }); // fortsätter köra som vanligt efteråt
+  const rolls = Math.abs(v.speed) > speedAfter * 0.9 && v.grounded >= 3;
+  const u2 = rw.start(car); while (car.rewinding) run(STEP, { throttle: 1, steer: 0 });
+  run(1.5, { throttle: 1, steer: 0 });
+  const u3 = rw.start(car); while (car.rewinding) run(STEP, { throttle: 1, steer: 0 });
+  run(1.5, { throttle: 1, steer: 0 });
+  const u4 = rw.start(car); // slut på spolningar
+  rw.clear(car);
+  check('Spola: tillbaka på spåret',
+    !tooEarly && ok && !twice && miss < 1.2 && up > 0.9 && speedAfter > 0.5 * speedBefore && took < REWIND.playTime + 0.2 && rolls,
+    `miss ${miss.toFixed(2)} m från läget 3 s tidigare, fart ${speedAfter.toFixed(1)} av ${speedBefore.toFixed(1)} m/s, upprätt ${up.toFixed(2)}, tog ${took.toFixed(2)} s`);
+  check('Spola: antal och regler', u2 && u3 && !u4 && car.rewind.uses === 0 && car.rewind.buf.length === 0 && got.join(',') === 'start,end,start,end,start,end' && tCrash > 0,
+    `tre spolningar gick, den fjärde nekades, händelser ${got.join(' ')}`);
 }
 
 // 11d. Minikarta: varje bana och dess genvägar ryms inom kartan med rätt proportioner (kör: npm test karta)

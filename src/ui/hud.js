@@ -152,6 +152,21 @@ export class Hud {
     });
   }
 
+  // --- Spola tillbaka (race/rewind.js): antal kvar, och en ton över bilden medan det spolas ---
+  setRewind(left) {
+    const el = document.getElementById('rewind');
+    if (!el) return;
+    el.classList.toggle('on', left >= 0);
+    el.classList.toggle('empty', left === 0);
+    el.querySelector('b').textContent = Math.max(0, left);
+    document.getElementById('rewindfx')?.classList.remove('on');
+  }
+
+  rewind({ phase, left }) {
+    this.setRewind(left);
+    document.getElementById('rewindfx')?.classList.toggle('on', phase === 'start');
+  }
+
   // Etikett som studsar upp i bild och tonar bort. Flera kan synas samtidigt.
   stuntPop(label, gain) {
     const root = document.getElementById('hud');
