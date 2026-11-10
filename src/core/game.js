@@ -53,7 +53,7 @@ export class Game {
 
     // Renderare
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -130,7 +130,7 @@ export class Game {
   // pixlar att rita på en Retina-skärm)
   setGraphics(low) {
     this.post.enabled = !low;
-    const pr = Math.min(window.devicePixelRatio || 1, low ? 1 : 2);
+    const pr = Math.min(window.devicePixelRatio || 1, low ? 1 : 1.5);
     if (this.renderer.getPixelRatio() !== pr) {
       this.renderer.setPixelRatio(pr);
       this.post.composer.setPixelRatio(pr);

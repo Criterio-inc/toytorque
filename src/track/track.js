@@ -275,7 +275,9 @@ function buildShortcut(main, sc, A, B, s) {
     // Bara riktiga hopp (glapp ovanför golvet) körs i full fart. Glapp i
     // golvhöjd tar bara bort vallarna (av- och påfarter) och kan ligga i en
     // kurva; där gäller kurvfarten, annars kör datorn rakt ut ur böjen.
-    lineSpeed[i] = isGap[i] && pts[i].y > 0.02 ? 30 : Math.min(30, Math.sqrt((MU_REF * GRAVITY * 0.85) / Math.max(k, 1e-4)));
+    // aiSpeed (valfritt i nivådatan) är högsta fart för datorförarna på genvägen, till
+    // exempel när ett hopp där slår runt de snabbaste bilarna i full fart.
+    lineSpeed[i] = Math.min(sc.aiSpeed ?? 30, isGap[i] && pts[i].y > 0.02 ? 30 : Math.sqrt((MU_REF * GRAVITY * 0.85) / Math.max(k, 1e-4)));
   }
   // Inbromsning bakåt. I luften går det inte att bromsa: farten efter ett
   // hopp måste redan gälla vid hoppkanten, annars landar datorn för fort
