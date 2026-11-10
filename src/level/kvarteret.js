@@ -53,7 +53,7 @@ export const kvarteret = {
     shadow: { range: 24, size: 4096 },
   },
   skyDome: { top: 0x0f55c4, horizon: 0x7fbdf2, cloud: 0xfffaf0, cloudShade: 0x8fa6c6, coverage: 0.46 },
-  look: { ao: 1, speedBlur: 1, sharpen: 0.35, contrast: 1.14, saturation: 1.16, warmth: 0.025, bloom: 0.28 },
+  look: { ao: 0.8, contrast: 1.14, saturation: 1.16, warmth: 0.025, bloom: 0.28 },
   floor: { size: 180 },
 
   trackTheme: { road: '#505154', roadRough: 0.92, side: 0xa58358, pillar: 0x8a6b45, barrierA: 0xc9c6bf, barrierB: 0xbfbcb4 },

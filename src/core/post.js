@@ -62,7 +62,7 @@ export class Post {
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.32, 0.5, 2.2); // HDR före tonmappning: bara lampor och sådant som lyser själv glöder
     this.grade = new ShaderPass(GradeShader);
     this.composer.addPass(this.renderPass);
-    // Hörnskuggor: mörkare där ytor möts och under bilarna. Av tills en bana ber om det.
+    // Hörnskuggor: mörkare där ytor möts och under bilarna. Styrkan sätts per bana i setLook.
     this.ao = new GTAOPass(scene, camera, size.x, size.y, undefined, { radius: 0.45, distanceExponent: 1.6, thickness: 0.6, scale: 1.1, samples: 12 });
     this.ao.enabled = false;
     this.composer.addPass(this.ao);
@@ -76,7 +76,7 @@ export class Post {
   setCamera(camera) { this.renderPass.camera = camera; }
 
   // Banor kan justera stämningen (natt = mer glöd, dag = mer mättnad)
-  setLook({ bloom = 0.45, saturation = 1.26, warmth = 0.03, vignette = 0.3, contrast = 1.08, ao = 0, speedBlur = 0, sharpen = 0 } = {}) {
+  setLook({ bloom = 0.45, saturation = 1.26, warmth = 0.03, vignette = 0.3, contrast = 1.08, ao = 0.7, speedBlur = 1, sharpen = 0.18 } = {}) {
     this.bloom.strength = bloom;
     this.grade.uniforms.saturation.value = saturation;
     this.grade.uniforms.warmth.value = warmth;

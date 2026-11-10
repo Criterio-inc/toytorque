@@ -513,7 +513,7 @@ function stripeTexture() {
 
 const decal = (f) => ({ polygonOffset: true, polygonOffsetFactor: f, polygonOffsetUnits: f });
 const MATERIALS = {
-  asphalt: () => cached('m.asphalt', () => new THREE.MeshStandardMaterial({ map: asphaltTexture(), normalMap: bumpFrom(asphaltTexture(), 3.5), roughness: 0.82, ...decal(-4) })),
+  asphalt: () => cached('m.asphalt', () => new THREE.MeshStandardMaterial({ map: asphaltTexture(), normalMap: bumpFrom(asphaltTexture(), 2.4), roughness: 0.84, ...decal(-4) })),
   concrete: () => cached('m.concrete', () => new THREE.MeshStandardMaterial({ map: concreteTexture(), normalMap: bumpFrom(concreteTexture(), 3), vertexColors: true, roughness: 0.88, ...decal(-5) })),
   pavers: () => cached('m.pavers', () => new THREE.MeshStandardMaterial({ map: paversTexture(), normalMap: bumpFrom(paversTexture(), 4), roughness: 0.85, ...decal(-4) })),
   plywood: () => cached('m.plywood', () => new THREE.MeshStandardMaterial({ map: plywoodTexture(), roughness: 0.75, ...decal(-5) })),

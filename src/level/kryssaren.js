@@ -29,9 +29,11 @@ export const kryssaren = {
   sky: 0x9cc8ea,
   skyGradient: ['#2a6cbd', '#d3e8f4', '#9cc6e0'],
   fog: { near: 120, far: 320, color: 0xd3e8f4 },
+  skyDome: { top: 0x1a62c8, horizon: 0xa9d4f2, cloud: 0xffffff, cloudShade: 0x9db3cf, coverage: 0.42 },
   lighting: {
-    sun: { color: 0xfff3de, intensity: 2.6, offset: SUN },
-    hemi: { sky: 0xd6ebff, ground: 0x9a7650, intensity: 0.85 },
+    sun: { color: 0xfff3de, intensity: 3.1, offset: SUN },
+    hemi: { sky: 0xbddcff, ground: 0x8a6a48, intensity: 0.55 },
+    shadow: { range: 22, size: 4096 },
     exposure: 1.0,
     envIntensity: 0.6,
   },

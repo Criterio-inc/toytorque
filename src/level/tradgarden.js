@@ -83,9 +83,11 @@ export const tradgarden = {
 
   trackTheme: { road: '#b6a584', roadRough: 0.92, side: 0x5a5850, pillar: 0x8a857a, barrierA: 0xaaa496, barrierB: 0x938e81 },
   skyGradient: [0x2f7fd8, 0xa9d6f6, 0xe6f2e2],
+  skyDome: { top: 0x1560cc, horizon: 0x8cc6f4, cloud: 0xffffff, cloudShade: 0x93a9c8, coverage: 0.5 },
   lighting: {
-    sun: { color: 0xfff0d4, intensity: 2.7, offset: [12, 28, 8] },
-    hemi: { sky: 0xd9edff, ground: 0x5d7c3a, intensity: 0.95 },
+    sun: { color: 0xffecc8, intensity: 3.3, offset: [16, 20, 10] },
+    hemi: { sky: 0xaecfff, ground: 0x4f6c32, intensity: 0.5 },
+    shadow: { range: 24, size: 4096 },
     exposure: 1.08,
     envIntensity: 0.6,
   },

@@ -23,9 +23,12 @@ export const spokstaden = {
   sky: 0xe0bc92,
   skyGradient: [0x86aed4, 0xe6c49a, 0xd8ab7c],
   fog: { near: 30, far: 165, color: 0xdcb88e },
+  // Dammig ökenhimmel: blekblå överst, sandfärgad horisont, tunna moln
+  skyDome: { top: 0x5f93cf, horizon: 0xe9c79c, cloud: 0xfff0dc, cloudShade: 0xc9a680, coverage: 0.36 },
   lighting: {
-    sun: { color: 0xffcf98, intensity: 2.5, offset: [-21, 13, 11] },
-    hemi: { sky: 0xffe4bc, ground: 0x9a6a40, intensity: 0.85 },
+    sun: { color: 0xffcf98, intensity: 3.1, offset: [-21, 13, 11] },
+    hemi: { sky: 0xf2d8b8, ground: 0x8a5c36, intensity: 0.55 },
+    shadow: { range: 24, size: 4096 },
     exposure: 1.0,
     envIntensity: 0.35,
   },
