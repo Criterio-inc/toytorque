@@ -25,6 +25,7 @@ import { Replay } from '../race/replay.js';
 import { StuntSession } from '../stunt/stunt.js';
 import { renderSplit, direct, makeSkyTexture, applyLighting } from './gameViews.js';
 import { makeSkyDome } from './sky.js';
+import { evening } from '../level/evening.js';
 import { Rewind } from '../race/rewind.js';
 import { StuntBonus } from '../race/stuntBonus.js';
 import { Minimap, loadMapOn, carColor } from '../ui/minimap.js';
@@ -37,11 +38,11 @@ import { Minimap, loadMapOn, carColor } from '../ui/minimap.js';
 const BASE_FOV = 60;
 
 export class Game {
-  constructor(RAPIER, { container, levels, extraLevels = [], level, carId = 'rasket', opponents = 7, difficulty = 'normal' }) {
+  constructor(RAPIER, { container, levels, extraLevels = [], level, carId = 'rasket', opponents = 7, difficulty = 'normal', evening: dusk = false }) {
     this.RAPIER = RAPIER;
-    this.opponents = opponents;
-    this.difficulty = difficulty;
+    this.opponents = opponents; this.difficulty = difficulty;
     this.assist = 0.4; // spelarnas körhjälp 0..1 (sätts från inställningarna)
+    this.evening = dusk; // kvällsvariant på banor som har en (menyns banval eller ?kvall=1)
     this.levels = levels;
     this.extraLevels = extraLevels; // nivåer utanför banvalet (Stuntarenan)
     this.levelDef = level;
@@ -163,8 +164,8 @@ export class Game {
 
     this.levelGroup = new THREE.Group();
     this.scene.add(this.levelGroup);
-    this.level = buildLevel({ scene: this.levelGroup, world: this.world, RAPIER: this.RAPIER, level: this.levelDef });
-    const L = this.levelDef;
+    const L = this.evening && this.levelDef.evening ? evening(this.levelDef) : this.levelDef;
+    this.level = buildLevel({ scene: this.levelGroup, world: this.world, RAPIER: this.RAPIER, level: L });
     this.scene.background?.isTexture && this.scene.background.dispose();
     this.scene.background = L.skyGradient ? makeSkyTexture(L.skyGradient) : new THREE.Color(L.sky);
     this.scene.fog = new THREE.Fog(L.fog.color ?? L.sky, L.fog.near, L.fog.far);
@@ -177,7 +178,7 @@ export class Game {
 
     this.skids = new Skidmarks(this.levelGroup);
     this.dust = new Dust(this.levelGroup, this.levelDef.dust ?? DUST[this.levelDef.id] ?? 0xcfcfcf);
-    this.post.setLook(this.levelDef.look || {});
+    this.post.setLook(L.look || {});
     const mode = this.opts.mode;
     const quiet = mode === 'demo' || mode === 'showroom';
     const stunt = mode === 'stunt'; // fri körning: inga varv, ingen nedräkning
@@ -242,7 +243,7 @@ export class Game {
       const info = this.raceInfo || {};
       this.hud.showInfo({
         mode: info.mode || (mode === 'timetrial' ? 'Tidskörning' : 'Enkelt lopp'),
-        stage: info.stage, track: this.levelDef.name,
+        stage: info.stage, track: L.name,
         length: `${Math.round(this.track.length)} m`, laps: laps,
       }, this.race.introLen);
       this.raceInfo = null;

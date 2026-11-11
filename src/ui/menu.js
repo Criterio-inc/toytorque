@@ -60,6 +60,7 @@ export class Menu {
     this.levels = game.levels;
     this.settings = { difficulty: 'normal', laps: 3, opponents: 7, weapons: true, gfx: 'high', assist: 'normal', ...loadSettings() };
     game.setAssist(assistOf(this.settings.assist));
+    if (this.settings.evening) game.evening = true; // ?kvall=1 i adressen gäller annars
     game.setGraphics(this.settings.gfx === 'low');
     game.shakeOn = this.settings.shake !== false;
     this.sel = { carId: game.carId, cls: CARS[game.carId].cls, level: game.levelDef.id, cup: CUPS[0] };
@@ -260,9 +261,15 @@ export class Menu {
 
   trackScreen(next) {
     const preview = () => this.game.setup({ mode: 'demo', level: this.sel.level, carId: this.sel.carId });
+    const dusk = () => !!this.game.evening;
     return {
       title: 'Välj bana',
-      items: this.levels.map((l) => ({ label: l.name, id: l.id, select: () => next() })),
+      // Banor med kvällsvariant växlas med ◀▶; valet sparas och gäller alla lägen
+      items: this.levels.map((l) => {
+        const item = { get label() { return `${l.name}${l.evening ? (dusk() ? ' · kväll' : ' · dag') : ''}`; }, id: l.id, select: () => next() };
+        if (l.evening) item.left = item.right = () => { this.settings.evening = this.game.evening = !dusk(); saveSettings(this.settings); preview(); };
+        return item;
+      }),
       side: () => trackCard(this.levels.find((l) => l.id === this.sel.level), this),
       enter: () => {
         this.index = Math.max(0, this.levels.findIndex((l) => l.id === this.sel.level));
@@ -270,7 +277,7 @@ export class Menu {
         preview();
       },
       onMove: (item) => { this.sel.level = item.id; this.render(); preview(); },
-      hint: '↑↓ bana · Enter kör · Esc tillbaka',
+      hint: '↑↓ bana · ◀▶ dag eller kväll · Enter kör · Esc tillbaka',
     };
   }
 
@@ -650,6 +657,7 @@ function loadSettings() {
   pick('gfx', ['high', 'low']);
   pick('weapons', [true, false]);
   pick('shake', [true, false]);
+  pick('evening', [true, false]);
   if (Number.isInteger(raw.laps)) out.laps = Math.max(1, Math.min(9, raw.laps));
   if (Number.isInteger(raw.opponents)) out.opponents = Math.max(0, Math.min(7, raw.opponents));
   return out;

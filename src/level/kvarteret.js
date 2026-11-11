@@ -129,6 +129,7 @@ export const kvarteret = {
   statics: [],
   props: [],
 
+  evening: true, // banan har en kvällsvariant (level/evening.js), väljs med ◀▶ i banvalet
   environment({ scene, world, RAPIER, track }) {
     return buildHood({ scene, world, RAPIER, track, night: !!this.night });
   },
