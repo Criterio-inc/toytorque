@@ -470,6 +470,16 @@ function hedgeTexture() {
   });
 }
 
+function poolTexture() {
+  return cached('poolTex', () => {
+    const [c, ctx] = canvas(128);
+    const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.25, '#b4b4b4'); g.addColorStop(0.6, '#3c3c3c'); g.addColorStop(1, '#000000');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
+    return toTex(c, { repeat: false });
+  });
+}
+
 function sandTexture() {
   return cached('sandTex', () => {
     const S = 256;
@@ -541,9 +551,11 @@ const MATERIALS = {
   dirt: () => cached('m.dirt', () => new THREE.MeshStandardMaterial({ map: dirtTexture(), vertexColors: true, roughness: 1, ...decal(-4) })),
   earth: () => cached('m.earth', () => new THREE.MeshStandardMaterial({ map: dirtTexture(), vertexColors: true, roughness: 1 })),
   stripes: () => cached('m.stripes', () => new THREE.MeshStandardMaterial({ map: stripeTexture(), roughness: 0.55 })),
+  // Ljuspöl på marken under en lykta (bara på kvällen): läggs ovanpå med additiv blandning
+  pool: () => cached('m.pool', () => new THREE.MeshBasicMaterial({ map: poolTexture(), vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, ...decal(-12) })),
   far: () => cached('m.far', () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 })),
 };
-const NO_SHADOW = new Set(['asphalt', 'pavers', 'plywood', 'paint', 'glow', 'far', 'dirt']);
+const NO_SHADOW = new Set(['asphalt', 'pavers', 'plywood', 'paint', 'glow', 'far', 'dirt', 'pool']);
 
 export class HoodBatch {
   constructor() { this.lists = new Map(); }
@@ -572,6 +584,7 @@ export class HoodBatch {
       const mesh = new THREE.Mesh(mergeGeometries(list), MATERIALS[key]());
       mesh.castShadow = !NO_SHADOW.has(key);
       mesh.receiveShadow = key !== 'glow';
+      mesh.name = key; // kvällsvarianten (level/evening.js) byter material efter namn
       scene.add(mesh);
     }
     this.lists.clear();
@@ -1229,6 +1242,11 @@ export function addLamp(B, world, RAPIER, { x, z, rot = 0 }) {
   B.add('metal', beam(0, 5.0, 0, 0, 5.25, 1.3, 0.06).applyMatrix4(M), c);
   B.add('metal', box(0.32, 0.14, 0.62, 0, 5.2, 1.45).applyMatrix4(M), c);
   B.add('glow', box(0.26, 0.02, 0.5, 0, 5.12, 1.45).applyMatrix4(M), [1, 0.96, 0.82]);
+  if (B.night) {
+    // Tänd lykta: större lysande kupa och en mjuk ljuspöl på marken under den
+    B.add('glow', box(0.3, 0.06, 0.58, 0, 5.1, 1.45).applyMatrix4(M), [1, 0.9, 0.62]);
+    B.add('pool', new THREE.CircleGeometry(5, 28).rotateX(-Math.PI / 2).translate(0, 0.03, 1.45).applyMatrix4(M), [0.34, 0.25, 0.11]); // tätt mot marken, annars hamnar skenet ovanpå bilarna
+  }
 }
 
 export function addMailbox(B, world, RAPIER, { x, z, rot = 0, color = 0x2b2b2b, seed = 1 }) {

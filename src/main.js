@@ -13,6 +13,7 @@ import { stuntarena } from './level/stuntarena.js';
 import { CARS } from './vehicle/carDefs.js';
 import { Menu } from './ui/menu.js';
 import { attachAudio } from './audio/audio.js';
+import { evening } from './level/evening.js';
 
 // ---------------------------------------------------------------------------
 // ToyTorque: start. Spelet öppnar startmenyn. För snabbtest kan ett lopp startas
@@ -25,7 +26,9 @@ await RAPIER.init();
 const LEVELS = [lagret, kitchen, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket];
 const params = new URLSearchParams(location.search);
 const carId = CARS[params.get('car')] ? params.get('car') : 'rasket';
-const level = LEVELS.find((l) => l.id === params.get('level')) || LEVELS[0];
+const dayLevel = LEVELS.find((l) => l.id === params.get('level')) || LEVELS[0];
+// ?kvall=1: stilprov av kvällsvarianten (finns inte i menyn än)
+const level = params.has('kvall') && dayLevel.skyDome ? evening(dayLevel) : dayLevel;
 const opponents = params.has('ai') ? Math.max(0, Math.min(7, +params.get('ai') || 0)) : 7;
 
 const game = new Game(RAPIER, { container: document.getElementById('app'), levels: LEVELS, extraLevels: [stuntarena], level, carId, opponents, difficulty: params.get('diff') || 'normal' });

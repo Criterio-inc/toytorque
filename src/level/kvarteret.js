@@ -130,7 +130,7 @@ export const kvarteret = {
   props: [],
 
   environment({ scene, world, RAPIER, track }) {
-    return buildHood({ scene, world, RAPIER, track });
+    return buildHood({ scene, world, RAPIER, track, night: !!this.night });
   },
 };
 
@@ -156,8 +156,9 @@ const FRONTAGE = [
   { a: [WEST, -100], b: [WEST, 100] },
 ];
 
-function buildHood({ scene, world, RAPIER, track }) {
+function buildHood({ scene, world, RAPIER, track, night = false }) {
   const B = scene ? new HoodBatch() : null;
+  if (B) B.night = night; // kvällsvarianten tänder lyktorna
   const r = rng(2024);
   const { roadHalf } = track;
   const curbOut = roadHalf + track.barrier.thick;

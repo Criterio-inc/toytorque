@@ -66,7 +66,7 @@ export class Game {
     this.scene = new THREE.Scene();
     // Miljöbelysning ger blanka golv och lackade bilar något att spegla
     const pmrem = new THREE.PMREMGenerator(renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environment = this.roomEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     this.scene.environmentIntensity = 0.55;
 
     this.camera = new THREE.PerspectiveCamera(BASE_FOV, window.innerWidth / window.innerHeight, 0.03, 200);
@@ -168,10 +168,10 @@ export class Game {
     this.scene.background?.isTexture && this.scene.background.dispose();
     this.scene.background = L.skyGradient ? makeSkyTexture(L.skyGradient) : new THREE.Color(L.sky);
     this.scene.fog = new THREE.Fog(L.fog.color ?? L.sky, L.fog.near, L.fog.far);
-    applyLighting(this, L.lighting || {});
     // Himmelskupol med moln och sol (utomhusbanor som ber om det)
     this.sky = L.skyDome ? makeSkyDome({ haze: L.fog.color ?? L.sky, ...L.skyDome }, L.lighting?.sun?.offset, L.lighting?.sun?.color) : null;
     if (this.sky) this.levelGroup.add(this.sky);
+    applyLighting(this, L.lighting || {});
     this.track = this.level.track;
     this.trackGroup = this.level.trackGroup;
 
