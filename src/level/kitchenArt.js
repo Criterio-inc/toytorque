@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { G, groups } from '../core/physics.js';
+import { bumpFrom } from './bump.js';
 import { rng } from './warehouseArt.js';
 
 // ---------------------------------------------------------------------------
@@ -630,13 +631,13 @@ function addFloors(C, R, tileRect) {
   };
   const [tx0, tx1, tz0, tz1] = tileRect;
   const tiles = new THREE.Mesh(plane(tx0, tx1, tz0, tz1, TILE_REPEAT), new THREE.MeshStandardMaterial({
-    map: tileFloorTexture(), roughness: 0.14, envMapIntensity: 1.0, polygonOffset: true, polygonOffsetFactor: -3,
+    map: tileFloorTexture(), normalMap: bumpFrom(tileFloorTexture(), 2.5), roughness: 0.14, envMapIntensity: 1.0, polygonOffset: true, polygonOffsetFactor: -3,
   }));
   tiles.receiveShadow = true;
   C.scene.add(tiles);
   const parts = [plane(tx1, R.x1, R.z0, R.z1, PARQUET_REPEAT), plane(R.x0, tx1, tz1, R.z1, PARQUET_REPEAT)];
   const parquet = new THREE.Mesh(mergeGeometries(parts), new THREE.MeshStandardMaterial({
-    map: parquetTexture(), roughness: 0.38, envMapIntensity: 0.8, polygonOffset: true, polygonOffsetFactor: -3,
+    map: parquetTexture(), normalMap: bumpFrom(parquetTexture(), 2), roughness: 0.38, envMapIntensity: 0.8, polygonOffset: true, polygonOffsetFactor: -3,
   }));
   parquet.receiveShadow = true;
   C.scene.add(parquet);

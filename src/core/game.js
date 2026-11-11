@@ -25,6 +25,7 @@ import { Replay } from '../race/replay.js';
 import { StuntSession } from '../stunt/stunt.js';
 import { renderSplit, direct, makeSkyTexture, applyLighting } from './gameViews.js';
 import { makeSkyDome } from './sky.js';
+import { Rewind } from '../race/rewind.js';
 import { StuntBonus } from '../race/stuntBonus.js';
 import { Minimap, loadMapOn, carColor } from '../ui/minimap.js';
 
@@ -52,7 +53,7 @@ export class Game {
 
     // Renderare
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -94,6 +95,7 @@ export class Game {
     this.events.on('hit', (d) => this._shake(null, d.kind === 'blast' ? 0.25 : 0.4, d.car));
     // --- Stuntbonus: etikett för spelare 1 ---
     this.events.on('stunt', (d) => { if (d.car === this.p1) this.hud.stuntPop(d.label, d.gain); });
+    this.events.on('rewind', (d) => { if (d.car === this.p1) this.hud.rewind(d); });
     this.input = new Input();
     this.hud = new Hud();
     this.minimap = new Minimap(document.getElementById('minimap'));
@@ -128,7 +130,7 @@ export class Game {
   // pixlar att rita på en Retina-skärm)
   setGraphics(low) {
     this.post.enabled = !low;
-    const pr = Math.min(window.devicePixelRatio || 1, low ? 1 : 2);
+    const pr = Math.min(window.devicePixelRatio || 1, low ? 1 : 1.5);
     if (this.renderer.getPixelRatio() !== pr) {
       this.renderer.setPixelRatio(pr);
       this.post.composer.setPixelRatio(pr);
@@ -223,6 +225,9 @@ export class Game {
     this.mapMode = mode === 'race' || mode === 'timetrial';
     if (this.mapMode) this.minimap.setTrack(this.track);
     this.minimap.setVisible(this.mapMode && this.mapOn);
+    // Spola tillbaka: spelarnas bilar i lopp och tidskörning (klockan går, så rekorden förblir ärliga)
+    this.rewind = this.mapMode ? new Rewind({ cars: [this.p1, this.p2].filter(Boolean), race: this.race, events: this.events }) : null;
+    this.hud.setRewind?.(this.rewind ? this.p1.rewind.uses : -1);
     this.ghost = mode === 'timetrial' ? new Ghost(this) : null;
     // --- Repris: spela in varje lopp och tidskörning ---
     if (this.replay) { this.replay.onEnd = null; this.replay.dispose(); }
@@ -300,6 +305,7 @@ export class Game {
     const p = this.stunt ? (here ? null : this.stunt.respawnPose(car.vehicle.position)) : here ? this.race.roadPoseNear(car.racer) : this.race.respawnPose(car.racer);
     if (p) car.vehicle.place({ ...p, y: p.y + 0.2 });
     this.race.resyncRacer(car.racer);
+    this.rewind?.clear(car);
     car.ai?.reset();
     if (car.vehicle === this.player) this.chase.snap = true;
     if (this.p2 && car === this.p2) this.chase2.snap = true;
@@ -324,12 +330,13 @@ export class Game {
         v.update(STEP, go ? car.ai.controls(v, STEP, this.vehicles) : { throttle: 0, steer: 0 });
       } else {
         const cc = car === this.p2 ? c2 : c;
-        v.update(STEP, go && !playerDone && !car.racer.finished ? cc : { throttle: 0, steer: cc.steer });
+        v.update(STEP, go && !playerDone && !car.racer.finished && !car.rewinding ? cc : { throttle: 0, steer: cc.steer });
       }
     }
     // Hastighet före steget, för att känna igen krockar
     for (const car of this.cars) { const lv = car.vehicle.body.linvel(); (car.vPrev ||= new THREE.Vector3()).set(lv.x, lv.y, lv.z); }
     this.world.step();
+    this.rewind?.step(STEP);
     for (const car of this.cars) {
       const v = car.vehicle;
       v.snapshot();
@@ -376,6 +383,7 @@ export class Game {
       else if (a === 'fire2' && this.p2 && !this.paused) this.weapons.fire(this.p2);
       else if (a === 'boost' && !this.paused) this.bonus?.boost(this.p1);
       else if (a === 'boost2' && this.p2 && !this.paused) this.bonus?.boost(this.p2);
+      else if ((a === 'rewind' || a === 'rewind2') && !this.paused) this.rewind?.start(a === 'rewind' ? this.p1 : this.p2);
       else if (a === 'flip2' && this.p2) this.reposition(this.p2, true);
       else if (a === 'reposition2' && this.p2) this.reposition(this.p2);
       else if (a === 'help') this.hud.toggleHelp();

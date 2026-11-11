@@ -32,11 +32,14 @@ export const supermarket = {
   sky: 0xdfe6ec,
   fog: { near: 40, far: 120, color: 0xdde4ea },
   lighting: {
-    sun: { color: 0xf2f7ff, intensity: 1.3, offset: [3, 30, 5] },
-    hemi: { sky: 0xf4f8ff, ground: 0xb4b8bc, intensity: 0.95 },
+    // Mer riktat ljus och mindre jämnt: hyllor och pallar får tydliga skuggor på golvet
+    sun: { color: 0xf6f8ff, intensity: 2.1, offset: [9, 26, 11] },
+    hemi: { sky: 0xf4f8ff, ground: 0xb4b8bc, intensity: 0.55 },
+    shadow: { range: 22, size: 2048 },
     exposure: 0.92,
     envIntensity: 0.55,
   },
+  look: { ao: 0.9, contrast: 1.18 },
   floor: { size: 84 },
 
   trackTheme: {

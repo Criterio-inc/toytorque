@@ -27,6 +27,7 @@ export const tradgarden = {
     checkpoints: 22,
     barrierHeight: 0.16,
     barrierThick: 0.12,
+    lineMargin: 0.8,
     start: { x: -14, z: -30 },
     corners: [
       { x: 8, z: -30, r: 7 },
@@ -72,6 +73,7 @@ export const tradgarden = {
     // (glapp i genvägens väg) så att dess vallar aldrig hamnar på huvudbanan.
     shortcuts: [{
       from: [8, 30], via: [[-4, 28.8], [-15, 27.8]], to: [-24, 19.8], r: 6, roadHalf: 1.2, ai: 0.35,
+      aiSpeed: 12, // i full fart slår de snabbaste bilarna runt efter plankrampens hopp
       elevation: [
         { at: [-0.95, 29.1], y: 0 },
         { at: [-3.94, 28.8], y: 0.28, linear: true },

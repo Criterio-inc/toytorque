@@ -105,7 +105,10 @@ export class Race {
       // Ingen framfart på länge: datorförare sätts tillbaka automatiskt,
       // spelaren får trycka R själv.
       if (this.running && !r.finished) {
-        if (r.progress > r.bestProgress + 0.5) { r.bestProgress = r.progress; r.stuckTime = 0; }
+        // Kryper bilen fram på gräset längs en mur eller kantvall ökar sträckan sakta,
+        // men den kommer aldrig upp på vägen igen. Det räknas som att sitta fast.
+        const creeping = !onRoad && Math.abs(r.vehicle.speed) < 2 && Math.abs(near.lateral) > T.roadHalf && !this._onShortcut(p);
+        if (r.progress > r.bestProgress + 0.5 && !creeping) { r.bestProgress = r.progress; r.stuckTime = 0; }
         // Utanför huvudbanan i fart (en lång eller långsam genväg) står
         // sträckan still fast bilen kör: räkna då bara långsamt
         else r.stuckTime += offMain && Math.abs(r.vehicle.speed) > 2 ? dt * 0.25 : dt;
@@ -166,6 +169,15 @@ export class Race {
     // Ny checkpoint: börja mäta från aktuell sida.
     const ncp = this.track.checkpoints[r.nextCp];
     r.prevS = (p.x - ncp.x) * ncp.tangent.x + (p.z - ncp.z) * ncp.tangent.z;
+  }
+
+  // Är punkten på eller intill någon av banans genvägar?
+  _onShortcut(p) {
+    for (const sc of this.track.shortcuts || []) {
+      const path = sc.path;
+      if (path?.nearest && path.nearest(p.x, p.z).d2 < ((path.roadHalf ?? this.track.roadHalf) + 1) ** 2) return true;
+    }
+    return false;
   }
 
   // Var en förare ska sättas tillbaka.

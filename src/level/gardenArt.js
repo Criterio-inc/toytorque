@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { G, groups } from '../core/physics.js';
 import { rng } from './warehouseArt.js';
 import { bankY } from '../track/track.js';
+import { crownGeos } from './foliage.js';
 
 // ---------------------------------------------------------------------------
 // Procedurell grafik för den botaniska trädgården: gräsmatta, grusgång,
@@ -569,21 +570,15 @@ export function makeLawn(scene, world, RAPIER, { size }) {
   scene.add(outer);
   const r = rng(221);
   const n = 60;
-  // Knöliga kronor: ikosaeder med brus i radien
-  const crown = new THREE.IcosahedronGeometry(1, 3);
-  const cp = crown.attributes.position;
-  for (let i = 0; i < cp.count; i++) {
-    const v = new THREE.Vector3().fromBufferAttribute(cp, i);
-    const k = 1 + 0.12 * Math.sin(v.x * 5.1 + v.y * 3.3) * Math.cos(v.z * 4.7 - v.y * 2.1) + 0.06 * Math.sin(v.y * 11 + v.x * 7);
-    cp.setXYZ(i, v.x * k, v.y * k * 0.8, v.z * k);
-  }
-  crown.computeVertexNormals();
-  const trees = new THREE.InstancedMesh(crown, new THREE.MeshStandardMaterial({ color: 0x4d7a36, roughness: 1 }), n);
+  // Knöliga, mjukt rundade kronor (samma klumpar som träden på Kvarteret)
+  const crown = crownGeos(3)[0].clone().scale(1, 0.8, 1);
+  const trees = new THREE.InstancedMesh(crown, new THREE.MeshStandardMaterial({ color: 0x4d7a36, vertexColors: true, roughness: 1 }), n);
   const stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.7, 1, 1, 7).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 1 }), n);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + r() * 0.1, d = half + 45 + r() * 50, s = 6 + r() * 7;
-    m.compose(new THREE.Vector3(Math.cos(a) * d, s * 1.35, Math.sin(a) * d), q, new THREE.Vector3(s, s * (0.9 + r() * 0.5), s));
+    m.compose(new THREE.Vector3(Math.cos(a) * d, s * 1.35, Math.sin(a) * d), q.setFromAxisAngle(UP, i * 2.4), new THREE.Vector3(s, s * (0.9 + r() * 0.5), s));
+    q.identity();
     trees.setMatrixAt(i, m);
     trees.setColorAt(i, c.setHSL(0.25 + r() * 0.06, 0.4, 0.28 + r() * 0.1));
     m.compose(new THREE.Vector3(Math.cos(a) * d, 0, Math.sin(a) * d), q, new THREE.Vector3(s * 0.12, s * 0.8, s * 0.12));

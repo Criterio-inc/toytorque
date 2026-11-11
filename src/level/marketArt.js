@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { G, groups } from '../core/physics.js';
+import { bumpFrom } from './bump.js';
 import { rng } from './warehouseArt.js';
 
 export { rng };
@@ -944,7 +945,7 @@ export function makeStore(C, { x0, x1, z0, z1, height, ground = 84 }) {
   const map = floorTexture().clone();
   map.repeat.set(W / FLOOR_REPEAT, D / FLOOR_REPEAT);
   map.needsUpdate = true;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshStandardMaterial({ map, roughness: 0.16, metalness: 0, envMapIntensity: 1.1 }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshStandardMaterial({ map, normalMap: bumpFrom(map, 1.5), roughness: 0.16, metalness: 0, envMapIntensity: 1.1 }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(cx, 0, cz);
   floor.receiveShadow = true;

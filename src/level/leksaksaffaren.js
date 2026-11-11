@@ -76,6 +76,7 @@ export const leksaksaffaren = {
     exposure: 0.92,
     envIntensity: 0.32,
   },
+  look: { ao: 0.9 },
   floor: { size: SIZE },
 
   track: {

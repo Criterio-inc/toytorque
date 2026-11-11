@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { bumpFrom } from './bump.js';
+import { crownGeos, leafTufts, leafCardTexture, limb, trunkGeo } from './foliage.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { G, groups } from '../core/physics.js';
 import { rng } from './warehouseArt.js';
@@ -531,7 +532,9 @@ const MATERIALS = {
   glass: () => cached('m.glass', () => new THREE.MeshStandardMaterial({ color: 0x223040, roughness: 0.05, metalness: 0.7, envMapIntensity: 1.6 })),
   rubber: () => cached('m.rubber', () => new THREE.MeshStandardMaterial({ color: 0x1c1c1e, roughness: 0.92 })),
   glow: () => cached('m.glow', () => new THREE.MeshBasicMaterial({ vertexColors: true })),
-  leaves: () => cached('m.leaves', () => new THREE.MeshStandardMaterial({ map: leafTexture(), vertexColors: true, roughness: 0.85 })),
+  leaves: () => cached('m.leaves', () => new THREE.MeshStandardMaterial({ map: leafTexture(), normalMap: bumpFrom(leafTexture(), 3), vertexColors: true, roughness: 0.85 })),
+  // Bladtofsar: urklippta med alfa, ritade från ett håll (två plan per tofs i geometrin)
+  tufts: () => cached('m.tufts', () => new THREE.MeshStandardMaterial({ map: leafCardTexture(), alphaTest: 0.5, vertexColors: true, roughness: 0.85 })),
   bark: () => cached('m.bark', () => new THREE.MeshStandardMaterial({ map: barkTexture(), vertexColors: true, roughness: 0.95 })),
   hedge: () => cached('m.hedge', () => new THREE.MeshStandardMaterial({ map: hedgeTexture(), vertexColors: true, roughness: 0.92 })),
   sand: () => cached('m.sand', () => new THREE.MeshStandardMaterial({ map: sandTexture(), vertexColors: true, roughness: 1 })),
@@ -1032,13 +1035,17 @@ function addGableRoof(add, { w, d, y, pitch, over, roofC, siding, white, rotY = 
 }
 
 function addShrub(add, x, z, s, r) {
-  const g = new THREE.IcosahedronGeometry(1, 1);
-  const p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) * s * (1 + r() * 0.1), Math.max(-0.3, p.getY(i)) * s * 0.85, p.getZ(i) * s * (1 + r() * 0.1));
-  g.computeVertexNormals();
-  const uv = g.attributes.uv;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 2, uv.getY(i));
-  add('leaves', g.translate(x, s * 0.6, z), [0.55 + r() * 0.15, 0.75 + r() * 0.15, 0.5]);
+  const g = crownGeos(2)[Math.floor(r() * 3)].clone().rotateY(r() * 6);
+  const p = g.attributes.position, c = g.attributes.color, uv = g.attributes.uv;
+  const tint = [0.55 + r() * 0.15, 0.75 + r() * 0.15, 0.5];
+  for (let i = 0; i < p.count; i++) {
+    // Platt undersida mot marken
+    p.setXYZ(i, p.getX(i) * s * 1.15, Math.max(-0.3, p.getY(i)) * s, p.getZ(i) * s * 1.15);
+    const k = c.getX(i) * (0.75 + 0.35 * Math.max(0, p.getY(i) / s));
+    c.setXYZ(i, tint[0] * k, tint[1] * k, tint[2] * k);
+    uv.setXY(i, uv.getX(i) * 2, uv.getY(i));
+  }
+  add('leaves', g.translate(x, s * 0.5, z), null);
 }
 function addFlowers(add, x, z, r) {
   const cols = [[1, 0.45, 0.6], [1, 0.9, 0.3], [0.95, 0.3, 0.3], [1, 1, 1], [0.7, 0.5, 1]];
@@ -1104,21 +1111,6 @@ export function addOpenGarage(B, world, RAPIER, { x, z, rot = 0, w = 6.6, d = 6.
 // Träd, häckar, staket
 // ===========================================================================
 
-const crowns = () => cached('crownGeos', () => [11, 23, 37].map((seed) => {
-  const r = rng(seed);
-  const g = new THREE.IcosahedronGeometry(1, 2);
-  const p = g.attributes.position;
-  const waves = Array.from({ length: 4 }, () => [r() * 6, r() * 6, r() * 6, r() * 6]);
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    let k = 1;
-    for (const [a, b, c, ph] of waves) k += Math.sin(x * a + y * b + z * c + ph) * 0.05;
-    p.setXYZ(i, x * k, y * k, z * k);
-  }
-  g.computeVertexNormals();
-  return g.toNonIndexed();
-}));
-
 /** Lövträd: {x, z, h, s (kronans radie), seed, tint} */
 export function addTree(B, world, RAPIER, { x, z, h = 7, s = 3, seed = 1, tint = 0 }) {
   if (world) {
@@ -1128,11 +1120,8 @@ export function addTree(B, world, RAPIER, { x, z, h = 7, s = 3, seed = 1, tint =
   if (!B) return;
   const r = rng(seed);
   const tr = 0.2 * s / 3 + 0.05;
-  const trunk = cyl(tr * 0.7, tr, h * 0.62, 0, 0, 0, 9);
-  const uv = trunk.attributes.uv;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 2, uv.getY(i) * h * 0.4);
-  B.add('bark', trunk.translate(x, 0, z), [1, 1, 1]);
-  // Grenar ut mot kronklumparna
+  B.add('bark', trunkGeo(tr * 0.7, tr, h * 0.62).rotateY(r() * 6).translate(x, 0, z), [1, 1, 1]);
+  // Stora klumpar runt en mitt, plus en överst
   const cy = h - s * 0.85;
   const blobs = [];
   const n = 5 + Math.floor(r() * 3);
@@ -1141,25 +1130,34 @@ export function addTree(B, world, RAPIER, { x, z, h = 7, s = 3, seed = 1, tint =
     blobs.push([Math.cos(a) * d, cy + (r() - 0.3) * s * 0.6, Math.sin(a) * d, s * (0.5 + r() * 0.25)]);
   }
   blobs.push([0, cy + s * 0.45, 0, s * 0.65]);
-  for (const [bx, by, bz] of blobs.slice(0, 4)) B.add('bark', beam(x, h * 0.5, z, x + bx * 0.8, by - 0.2, z + bz * 0.8, tr * 0.5), [1, 1, 1]);
+  // Grenar ut mot klumparna
+  for (const [bx, by, bz] of blobs.slice(0, 4)) B.add('bark', limb(x, h * 0.48, z, x + bx * 0.8, by - 0.2, z + bz * 0.8, tr * 0.5, tr * 0.25), [1, 1, 1]);
+  // Små klumpar ytterst gör konturen oregelbunden
+  const big = blobs.length;
+  for (let k = 0; k < big; k++) for (let j = 0; j < 2; j++) {
+    const [bx, by, bz, bs] = blobs[k];
+    const a = Math.atan2(bz, bx) + (r() - 0.5) * 1.6, up = (r() - 0.25) * 1.2;
+    const d = bs * 0.8;
+    blobs.push([bx + Math.cos(a) * Math.cos(up) * d, by + Math.sin(up) * d * 0.85, bz + Math.sin(a) * Math.cos(up) * d, bs * (0.42 + r() * 0.16)]);
+  }
   const hue = [0.62 + tint * 0.1 + r() * 0.08, 0.86 + r() * 0.1, 0.5 + r() * 0.08];
-  for (const [bx, by, bz, bs] of blobs) {
-    const g = crowns()[Math.floor(r() * 3)].clone();
+  blobs.forEach(([bx, by, bz, bs], bi) => {
+    const g = crownGeos(bi < big ? 3 : 2)[Math.floor(r() * 3)].clone();
     g.scale(bs, bs * 0.85, bs);
     g.rotateY(r() * 6);
     g.translate(x + bx, by, z + bz);
-    // Mörkare undertill, ljusare i solen överst
-    const p = g.attributes.position;
-    const col = new Float32Array(p.count * 3);
+    // Mörkare undertill och i vecken, ljusare i solen överst
+    const p = g.attributes.position, c = g.attributes.color;
     for (let i = 0; i < p.count; i++) {
-      const k = 0.62 + 0.5 * Math.max(0, Math.min(1, (p.getY(i) - (cy - s * 0.6)) / (s * 1.6)));
-      col[i * 3] = hue[0] * k; col[i * 3 + 1] = hue[1] * k; col[i * 3 + 2] = hue[2] * k;
+      const k = c.getX(i) * (0.66 + 0.52 * Math.max(0, Math.min(1, (p.getY(i) - (cy - s * 0.6)) / (s * 1.6))));
+      c.setXYZ(i, hue[0] * k, hue[1] * k, hue[2] * k);
     }
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     const uv2 = g.attributes.uv;
     for (let i = 0; i < uv2.count; i++) uv2.setXY(i, uv2.getX(i) * 3 * bs, uv2.getY(i) * 2 * bs);
     B.add('leaves', g, null);
-  }
+    const lift = 0.8 + 0.4 * Math.max(0, Math.min(1, (by - (cy - s * 0.6)) / (s * 1.6)));
+    B.add('tufts', leafTufts(r, x + bx, by, z + bz, bs, hue.map((v) => v * lift), bi < big ? 9 : 5), null);
+  });
 }
 
 /** Häck: {x, z, w, d, h, rot} */
@@ -1458,7 +1456,7 @@ export function addFarTrees(B, list) {
   if (!B) return;
   for (const { x, z, s, seed } of list) {
     const r = rng(seed);
-    const g = crowns()[seed % 3].clone().scale(s, s * 0.9, s).translate(x, s * 1.3, z);
+    const g = crownGeos(2)[seed % 3].clone().scale(s, s * 0.9, s).translate(x, s * 1.3, z);
     const c = [0.24 + r() * 0.06, 0.38 + r() * 0.08, 0.2];
     B.add('far', g, c);
     B.add('far', cyl(s * 0.1, s * 0.14, s * 0.6, x, 0, z, 6), [0.36, 0.3, 0.24]);

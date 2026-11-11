@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { G, groups } from '../core/physics.js';
+import { bumpFrom } from './bump.js';
 import { rng } from './warehouseArt.js';
 import { bankY, addUnderlay } from '../track/track.js';
 
@@ -621,9 +622,9 @@ function nightEnv() {
 
 const std = (o) => new THREE.MeshStandardMaterial({ vertexColors: true, envMap: nightEnv(), envMapIntensity: 1.2, ...o });
 const MATS = {
-  marble: () => std({ map: marbleTex(), roughness: 0.22, metalness: 0 }),
+  marble: () => std({ map: marbleTex(), normalMap: bumpFrom(marbleTex(), 1), roughness: 0.22, metalness: 0 }),
   dark: () => std({ color: 0x2a2624, roughness: 0.25, metalness: 0.1 }),
-  stone: () => std({ map: sandWallTex(), roughness: 0.85 }),
+  stone: () => std({ map: sandWallTex(), normalMap: bumpFrom(sandWallTex(), 3), roughness: 0.85 }),
   wood: () => std({ color: 0x5a3820, roughness: 0.45 }),
   brass: () => std({ color: 0xc9a050, roughness: 0.28, metalness: 1 }),
   gold: () => std({ color: 0xe0b040, roughness: 0.22, metalness: 1 }),
@@ -779,9 +780,9 @@ export function roomOf(M, x, z) {
 }
 
 const FLOOR_MAT = {
-  hall: () => cached('fmHall', () => new THREE.MeshStandardMaterial({ map: hallFloorTex(), roughness: 0.1, metalness: 0.05, envMap: nightEnv(), envMapIntensity: 1.5 })),
+  hall: () => cached('fmHall', () => new THREE.MeshStandardMaterial({ map: hallFloorTex(), normalMap: bumpFrom(hallFloorTex(), 1.2), roughness: 0.1, metalness: 0.05, envMap: nightEnv(), envMapIntensity: 1.5 })),
   space: () => cached('fmSpace', () => new THREE.MeshStandardMaterial({ map: checkerTex(), roughness: 0.06, metalness: 0.1, envMap: nightEnv(), envMapIntensity: 1.0 })),
-  egypt: () => cached('fmEgypt', () => new THREE.MeshStandardMaterial({ map: sandFloorTex(), roughness: 0.7, envMap: nightEnv(), envMapIntensity: 1 })),
+  egypt: () => cached('fmEgypt', () => new THREE.MeshStandardMaterial({ map: sandFloorTex(), normalMap: bumpFrom(sandFloorTex(), 3), roughness: 0.7, envMap: nightEnv(), envMapIntensity: 1 })),
 };
 const FLOOR_TILE = { hall: HALL_TILE, space: SPACE_TILE, egypt: SAND_TILE };
 

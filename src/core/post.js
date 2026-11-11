@@ -53,6 +53,8 @@ const GradeShader = {
     }`,
 };
 
+const AO_SCALE = 0.5; // andel av bildens bredd och höjd som hörnskuggorna räknas i
+
 export class Post {
   constructor(renderer, scene, camera) {
     this.renderer = renderer;
@@ -63,8 +65,20 @@ export class Post {
     this.grade = new ShaderPass(GradeShader);
     this.composer.addPass(this.renderPass);
     // Hörnskuggor: mörkare där ytor möts och under bilarna. Styrkan sätts per bana i setLook.
-    this.ao = new GTAOPass(scene, camera, size.x, size.y, undefined, { radius: 0.45, distanceExponent: 1.6, thickness: 0.6, scale: 1.1, samples: 12 });
+    this.ao = new GTAOPass(scene, camera, size.x, size.y, undefined, { radius: 0.45, distanceExponent: 1.6, thickness: 0.6, scale: 1.1, samples: 8 });
     this.ao.enabled = false;
+    // Hörnskuggor är mjuka och behöver inte skärmens fulla upplösning. I full
+    // Retina-upplösning tog de ensamma över 50 ms per bild; en fjärdedel av
+    // bildpunkterna ger samma intryck för en bråkdel av kostnaden.
+    const aoSize = this.ao.setSize.bind(this.ao);
+    this.ao.setSize = (w, h) => aoSize(Math.ceil(w * AO_SCALE), Math.ceil(h * AO_SCALE));
+    // Urklippta ytor (bladtofsar, ris) ritas som hela rutor i hörnskuggornas djupbild
+    // och ger då mörka fyrkanter runt sig. De hålls utanför den bilden.
+    const ao = this.ao;
+    ao.overrideVisibility = () => scene.traverse((o) => {
+      ao._visibilityCache.set(o, o.visible);
+      if (o.isPoints || o.isLine || (o.isMesh && o.material?.alphaTest > 0)) o.visible = false;
+    });
     this.composer.addPass(this.ao);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());

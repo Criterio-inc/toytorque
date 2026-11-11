@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { G, groups } from '../core/physics.js';
+import { bumpFrom } from './bump.js';
 import { rng } from './warehouseArt.js';
 import { bankY } from '../track/track.js';
 
@@ -316,7 +317,7 @@ export function makePlankFloor(scene, world, RAPIER, { size }) {
   map.needsUpdate = true;
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(size, size),
-    new THREE.MeshPhysicalMaterial({ map, roughness: 0.62, specularIntensity: 0.35, clearcoat: 0.7, clearcoatRoughness: 0.08, envMapIntensity: 1.0 })
+    new THREE.MeshPhysicalMaterial({ map, normalMap: bumpFrom(map, 2), roughness: 0.62, specularIntensity: 0.35, clearcoat: 0.7, clearcoatRoughness: 0.08, envMapIntensity: 1.0 })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
@@ -400,7 +401,7 @@ export function makeStoreHall(scene, world, RAPIER, { size, height }) {
     g.translate(s.x, 0, s.z);
     geos.push(g);
   }
-  const walls = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshStandardMaterial({ map: wallTexture(height), roughness: 0.85 }));
+  const walls = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshStandardMaterial({ map: wallTexture(height), normalMap: bumpFrom(wallTexture(height), 2), roughness: 0.85 }));
   walls.receiveShadow = true;
   scene.add(walls);
 

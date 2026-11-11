@@ -51,6 +51,7 @@ export const museet = {
   lighting: {
     sun: { color: 0x9fb2ff, intensity: 0.3, offset: [-9, 26, 13] },
     hemi: { sky: 0x6f6a96, ground: 0x241c26, intensity: 0.26 },
+    shadow: { range: 18, size: 2048 },
     exposure: 1.1,
     envIntensity: 0.1,
   },
