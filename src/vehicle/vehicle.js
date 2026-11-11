@@ -453,14 +453,19 @@ export class Vehicle {
       const pitchK = 1 - 0.8 * assist;
       _tq.copy(_side).multiplyScalar(-(controls.throttle || 0) * def.airControl * pitchK * I.x);
       _tq.addScaledVector(_up, (controls.steer || 0) * def.airControl * I.y);
-      if (assist > 0 && _up.y > 0) {
+      // airHelp sätts av loppet när bilen lämnar marken vid ett utpekat stort hopp
+      // (nivådatans airZones). Rampkanten ger annars nosen en knuff nedåt som de
+      // snabbaste bilarna slår runt av. Mest dämpning och lite upprätning, så att
+      // bilen kan följa nedförsrampen i landningen. Övriga hopp är orörda.
+      const air = Math.max(assist, this.airHelp || 0);
+      if (air > 0 && _up.y > 0) {
         // Moment kring axeln upp × lodrätt, plus dämpning av tipp/roll
         _r.set(-_up.z, 0, _up.x); // _up × (0,1,0)
         const yaw = _av.dot(_up);
-        _tq.addScaledVector(_r, 25 * assist * I.x);
-        _tq.x -= (_av.x - _up.x * yaw) * 4 * assist * I.x;
-        _tq.y -= (_av.y - _up.y * yaw) * 4 * assist * I.x;
-        _tq.z -= (_av.z - _up.z * yaw) * 4 * assist * I.x;
+        _tq.addScaledVector(_r, 25 * Math.max(assist, air * 0.3) * I.x);
+        _tq.x -= (_av.x - _up.x * yaw) * 4 * air * I.x;
+        _tq.y -= (_av.y - _up.y * yaw) * 4 * air * I.x;
+        _tq.z -= (_av.z - _up.z * yaw) * 4 * air * I.x;
       }
       body.addTorque(_tq, true);
     }

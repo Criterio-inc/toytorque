@@ -56,13 +56,14 @@ export const lagret = {
       { at: [C, 5], y: 0 },
       // Hoppet på vänster raka: rak ramp ända ut i kanten, glapp, landning ner
       { at: [-C, 7], y: 0 },
-      { at: [-C, 4], y: 0.06 },
-      { at: [-C, -1.5], y: 0.46, linear: true },
-      { at: [-C, -2.7], y: 0.32, linear: true },
-      { at: [-C, -5.5], y: 0.14, linear: true },
+      { at: [-C, 4], y: 0.08 },
+      { at: [-C, -1.5], y: 0.7, linear: true },
+      { at: [-C, -2.7], y: 0.5, linear: true },
+      { at: [-C, -6.5], y: 0.2, linear: true },
       { at: [-C, -11], y: 0 },
     ],
     gaps: [{ from: [-C, -1.5], to: [-C, -2.7] }],
+    airZones: [{ from: [-C, 6], to: [-C, -1.6] }], // det höga hoppet: bilarna hålls plana i luften
     // Doserat hörn av lastpallar i sydöstra hörnet
     bank: [{ at: [C, -C], deg: 15, fade: 6 }],
     // Pallställets tunnel på vänster raka: ställets sparklister är kanten.

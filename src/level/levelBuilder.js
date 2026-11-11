@@ -30,6 +30,9 @@ export function buildLevel({ scene = null, world, RAPIER, level }) {
   // Nivåns egen miljö: golv, väggar, staplar och lösa saker
   if (level.environment) props.push(...level.environment({ scene, world, RAPIER, track }));
 
+  // airZones i nivådatan: sträckor (från, till) fram till kanten på ett stort hopp
+  if (level.track.airZones) track.airZones = level.track.airZones.map((z) => [track.nearest(z.from[0], z.from[1]).index, track.nearest(z.to[0], z.to[1]).index]);
+
   // Lösa saker
   for (const p of level.props) {
     const k = PROP_KINDS[p.kind];
