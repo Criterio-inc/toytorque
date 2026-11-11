@@ -10,6 +10,8 @@ import { buildTrackData, buildTrackPhysics, buildTrackMesh } from '../track/trac
 const PROP_KINDS = {
   cone: { shape: 'cone', r: 0.07, h: 0.24, mass: 0.06, friction: 0.5, restitution: 0.2 },
   can: { shape: 'cyl', r: 0.034, h: 0.12, mass: 0.08, friction: 0.4, restitution: 0.25 },
+  carton: { shape: 'box', s: 0.2, mass: 0.03, friction: 0.5, restitution: 0.1 }, // tom kartong: flyger undan
+  tin: { shape: 'cyl', r: 0.034, h: 0.12, mass: 0.02, friction: 0.4, restitution: 0.25 }, // tom burk i en pyramid
   block: { shape: 'box', s: 0.09, mass: 0.12, friction: 0.6, restitution: 0.15 },
   ball: { shape: 'ball', r: 0.16, mass: 0.12, friction: 0.6, restitution: 0.7 },
 };
@@ -31,9 +33,12 @@ export function buildLevel({ scene = null, world, RAPIER, level }) {
   // Lösa saker
   for (const p of level.props) {
     const k = PROP_KINDS[p.kind];
-    const cp = track.checkpoints[p.cp];
-    const pose = track.poseAt(cp.index, p.lateral);
-    const y = pose.y + (k.h ?? k.s ?? k.r * 2) / 2 + 0.01;
+    // Platsen anges som checkpoint (cp) eller som andel av varvet (at, 0..1)
+    const base = p.at != null ? Math.round(p.at * track.N) % track.N : track.checkpoints[p.cp].index;
+    // along: meter framåt från platsen, up: antal lager ovanpå (staplar, se level/stacks.js)
+    const pose = track.poseAt(base + Math.round((p.along ?? 0) / track.spacing), p.lateral);
+    const hh = k.h ?? k.s ?? k.r * 2;
+    const y = pose.y + hh / 2 + 0.01 + (p.up ?? 0) * (hh + 0.002);
     const body = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic().setTranslation(pose.x, y, pose.z).setLinearDamping(0.1).setAngularDamping(0.3)
     );
@@ -105,7 +110,7 @@ function buildLevelMeshes(scene, built) {
     else if (k.shape === 'cyl') geo = new THREE.CylinderGeometry(k.r, k.r, k.h, 16);
     else if (k.shape === 'box') geo = new THREE.BoxGeometry(k.s, k.s, k.s);
     else geo = new THREE.SphereGeometry(k.r, 20, 14);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.45, metalness: p.kind === 'can' ? 0.6 : 0 }));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.45, metalness: p.kind === 'can' || p.kind === 'tin' ? 0.6 : 0 }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);

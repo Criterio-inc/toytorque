@@ -26,6 +26,7 @@ import { StuntSession } from '../stunt/stunt.js';
 import { renderSplit, direct, makeSkyTexture, applyLighting } from './gameViews.js';
 import { makeSkyDome } from './sky.js';
 import { evening } from '../level/evening.js';
+import { Juice } from './juice.js';
 import { Rewind } from '../race/rewind.js';
 import { StuntBonus } from '../race/stuntBonus.js';
 import { Minimap, loadMapOn, carColor } from '../ui/minimap.js';
@@ -90,10 +91,8 @@ export class Game {
     this.events = new Events();
     // --- Stuntläge: meddelande när en stjärna tas ---
     this.events.on('star', (d) => this.hud.message(d.all ? 'ALLA STJÄRNOR! BONUS UPPLÅST' : `★ ${d.count}/${d.total}`, { time: d.all ? 6 : 1.4 }));
-    // --- Kameraskak: explosioner i närheten och träffar på den egna bilen ---
     this.shakeOn = true; // Inställningar: Skakning
-    this.events.on('explode', (d) => { if (!d.replay) this._shake(d.pos, 0.3 + 0.55 * (d.size ?? 0.6), null); });
-    this.events.on('hit', (d) => this._shake(null, d.kind === 'blast' ? 0.25 : 0.4, d.car));
+    this.juice = new Juice(this); // gnistor, kameraskak, slow motion, konfetti
     // --- Stuntbonus: etikett för spelare 1 ---
     this.events.on('stunt', (d) => { if (d.car === this.p1) this.hud.stuntPop(d.label, d.gain); });
     this.events.on('rewind', (d) => { if (d.car === this.p1) this.hud.rewind(d); });
@@ -178,6 +177,7 @@ export class Game {
 
     this.skids = new Skidmarks(this.levelGroup);
     this.dust = new Dust(this.levelGroup, this.levelDef.dust ?? DUST[this.levelDef.id] ?? 0xcfcfcf);
+    this.juice.build(this.levelGroup);
     this.post.setLook(L.look || {});
     const mode = this.opts.mode;
     const quiet = mode === 'demo' || mode === 'showroom';
@@ -265,19 +265,6 @@ export class Game {
     this.hud.setSplit?.(!!this.p2);
     this.lastLap = 1;
     this.acc = 0;
-  }
-
-  // Skaka varje kamera efter avståndet från dess bil (delad skärm: var och en för sig)
-  _shake(pos, amount, car) {
-    if (!this.shakeOn || this.replaying) return;
-    const pairs = [[this.chase, this.p1], [this.chase2, this.p2]];
-    for (const [cam, own] of pairs) {
-      if (!cam || !own) continue;
-      if (car) { if (car === own) cam.addShake(amount); continue; }
-      const d = own.vehicle.currPos.distanceTo(pos);
-      const k = Math.max(0, 1 - d / 5);
-      if (k > 0) cam.addShake(amount * k * k);
-    }
   }
 
   _addCar(vehicle, ai, name, isPlayer) {
@@ -406,7 +393,7 @@ export class Game {
     if (this.replaying) { this.input.actions(); this.render(dt); return; }
     // --- slut repris ---
     this.handleActions();
-    if (this.paused) dt = 0;
+    dt = this.paused ? 0 : this.juice.time(dt);
     this.acc += dt;
     let n = 0;
     while (this.acc >= STEP && n < MAX_STEPS_PER_FRAME) {
@@ -437,6 +424,7 @@ export class Game {
     this.weapons.render(dt);
     this.skids.flush();
     this.dust.update(dt);
+    this.juice.update(dt);
 
     this.ghost?.render(alpha);
     this.startFx?.update(dt, this.race);

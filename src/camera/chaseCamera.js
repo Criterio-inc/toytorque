@@ -189,8 +189,9 @@ export class ChaseCamera {
   }
 
   _fov(dt, speed) {
-    const target = this.baseFov + Math.min(9, Math.abs(speed) * 0.4);
-    this.camera.fov += (target - this.camera.fov) * (1 - Math.exp(-dt * 3));
+    // kick sätts under turbo (core/juice.js): synfältet vidgas snabbt och går mjukt tillbaka
+    const target = this.baseFov + Math.min(9, Math.abs(speed) * 0.4) + (this.kick ? 9 : 0);
+    this.camera.fov += (target - this.camera.fov) * (1 - Math.exp(-dt * (this.kick ? 9 : 3)));
     this.camera.updateProjectionMatrix();
   }
 }

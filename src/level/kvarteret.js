@@ -5,6 +5,7 @@ import {
   addFarTrees, addLooseBall, addPlankFence, addCone, addBoomGate, addBooth, addDigger, addDirtPatch,
   addDirtPile, addTunnel, fitShortcutOpenings, VERGE, WALK, rng,
 } from './hoodArt.js';
+import { cartonWall, canPyramid, coneRow } from './stacks.js';
 
 // ---------------------------------------------------------------------------
 // Nivå: Kvarteret. Amerikanskt villakvarter en solig eftermiddag i riktig
@@ -127,7 +128,13 @@ export const kvarteret = {
   },
 
   statics: [],
-  props: [],
+  // Saker att köra rakt igenom: flyttkartonger på Maple Street, koner vid bygget, burkar på Elm Street
+  props: [
+    // Vid sidan av körlinjen: den som vill kör rakt igenom, den som siktar på tid kör förbi
+    ...coneRow(0.436, { lateral: 1.45, count: 5, gap: 0.8 }),
+    ...canPyramid(0.465, { lateral: -1.2, base: 4 }),
+    ...cartonWall(0.757, { lateral: -1.25, across: 4, layers: 2 }),
+  ],
 
   evening: true, // banan har en kvällsvariant (level/evening.js), väljs med ◀▶ i banvalet
   environment({ scene, world, RAPIER, track }) {
