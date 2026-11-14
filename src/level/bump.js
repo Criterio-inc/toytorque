@@ -6,8 +6,14 @@ import * as THREE from 'three';
 // stället för att ytan ser platt och målad ut. Kräver ingen bildfil.
 // ---------------------------------------------------------------------------
 
+// Samma bild och styrka ger samma karta: den räknas en gång och delas sedan,
+// annars görs arbetet om varje gång en bana byggs (också bakom menyn).
+const made = new WeakMap();
+
 export function bumpFrom(tex, strength = 2) {
   const src = tex.image, w = src.width, h = src.height;
+  const key = `${strength}`, hit = made.get(src)?.[key];
+  if (hit) { const n = hit.clone(); n.wrapS = tex.wrapS; n.wrapT = tex.wrapT; n.repeat.copy(tex.repeat); n.needsUpdate = true; return n; }
   const lum = new Float32Array(w * h);
   const d = src.getContext('2d').getImageData(0, 0, w, h).data;
   for (let i = 0; i < w * h; i++) lum[i] = (d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11) / 255;
@@ -29,5 +35,6 @@ export function bumpFrom(tex, strength = 2) {
   n.wrapS = tex.wrapS; n.wrapT = tex.wrapT;
   n.repeat.copy(tex.repeat);
   n.anisotropy = tex.anisotropy;
+  (made.get(src) || made.set(src, {}).get(src))[key] = n;
   return n;
 }

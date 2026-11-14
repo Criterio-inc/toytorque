@@ -20,7 +20,7 @@ const BLURB = {
   tradgarden: 'Trädgården. Palmhuset med dammen, stenbron och hoppet.',
   leksaksaffaren: 'Leksaksaffären. Nattöppet bland hyllorna: regnbågsrampen, borgtunneln vid roboten och hoppet.',
   museet: 'Museet. Nattligt museum: dinosaurien, Egyptensalen, hoppet över det svarta hålet och rulltrappan upp till galleriet.',
-  skejtparken: 'Skejtparken. En bred betongslinga i parken med två stora hopp, en puckel, en vågbana och doserade kurvor.',
+  skejtparken: 'Skejtparken. Bred betongbana i parken: bordshopp på startrakan, S-kurvan, stora hoppet, puckeln och den doserade kurvan hem.',
   kvarteret: 'Kvarteret. Villagatan i solsken, skaterampen, rondellen och genvägen genom garaget.',
   supermarket: 'Supermarketen. Hyllgångar, kampanjhopp, lastkajen och det hala frysrummet.',
 };
@@ -223,7 +223,7 @@ export class Menu {
     const self = this;
     const list = () => CAR_ORDER.filter((id) => CARS[id].cls === this.sel.cls);
     const classes = CLASSES.filter((c) => CAR_ORDER.some((id) => CARS[id].cls === c));
-    const preview = () => this.game.setup({ mode: 'showroom', carId: this.sel[key], level: this.sel.level });
+    const preview = () => this._soon(() => scr, () => this.game.setup({ mode: 'showroom', carId: this.sel[key], level: this.sel.level }));
     const scr = {
       title: player === 2 ? 'Spelare 2: välj bil' : this.flow === 'race2' ? 'Spelare 1: välj bil' : 'Välj bil',
       get sub() { return `◀ ${self.sel.cls} ▶`; },
@@ -260,10 +260,18 @@ export class Menu {
     return scr;
   }
 
+  // Förhandsvisningen bakom menyn bygger om hela banan, vilket tar en stund. Den
+  // väntar därför tills markeringen stått still en kort stund, så att det går
+  // fort att bläddra. Har spelaren hunnit lämna skärmen görs ingenting.
+  _soon(screenOf, fn) {
+    clearTimeout(this._pv);
+    this._pv = setTimeout(() => { if (this.screen === screenOf()) fn(); }, 220);
+  }
+
   trackScreen(next) {
-    const preview = () => this.game.setup({ mode: 'demo', level: this.sel.level, carId: this.sel.carId });
+    const preview = () => this._soon(() => scr, () => this.game.setup({ mode: 'demo', level: this.sel.level, carId: this.sel.carId }));
     const dusk = () => !!this.game.evening;
-    return {
+    const scr = {
       title: 'Välj bana',
       // Banor med kvällsvariant växlas med ◀▶; valet sparas och gäller alla lägen
       items: this.levels.map((l) => {
@@ -280,6 +288,7 @@ export class Menu {
       onMove: (item) => { this.sel.level = item.id; this.render(); preview(); },
       hint: '↑↓ bana · ◀▶ dag eller kväll · Enter kör · Esc tillbaka',
     };
+    return scr;
   }
 
   cupScreen() {
