@@ -28,7 +28,7 @@ export const spokstaden = {
   lighting: {
     sun: { color: 0xffcf98, intensity: 3.1, offset: [-21, 13, 11] },
     hemi: { sky: 0xf2d8b8, ground: 0x8a5c36, intensity: 0.55 },
-    shadow: { range: 24, size: 4096 },
+    shadow: { range: 24, size: 3072 },
     exposure: 1.0,
     envIntensity: 0.35,
   },

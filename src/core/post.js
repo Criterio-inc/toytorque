@@ -53,7 +53,7 @@ const GradeShader = {
     }`,
 };
 
-const AO_SCALE = 0.5; // andel av bildens bredd och höjd som hörnskuggorna räknas i
+const AO_SCALE = 0.36; // andel av bildens bredd och höjd som hörnskuggorna räknas i
 
 export class Post {
   constructor(renderer, scene, camera) {
@@ -80,6 +80,9 @@ export class Post {
       if (o.isPoints || o.isLine || (o.isMesh && o.material?.alphaTest > 0)) o.visible = false;
     });
     this.composer.addPass(this.ao);
+    // Glöden är suddig av naturen: halva upplösningen ger samma bild för en fjärdedel av arbetet
+    const bloomSize = this.bloom.setSize.bind(this.bloom);
+    this.bloom.setSize = (w, h) => bloomSize(Math.ceil(w * 0.5), Math.ceil(h * 0.5));
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.composer.addPass(this.grade);

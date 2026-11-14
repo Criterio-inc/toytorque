@@ -20,7 +20,7 @@ const DUSK = {
     exposure: 1.05,
     envIntensity: 1.0,
     envFromSky: true, // blanka ytor speglar skymningshimlen i stället för studioljuset
-    shadow: { range: 24, size: 4096 },
+    shadow: { range: 24, size: 3072 },
   },
   skyDome: { top: 0x18224e, horizon: 0xe8905e, cloud: 0x8a6a80, cloudShade: 0x2c2844, coverage: 0.5, sunSize: 0.0006 },
   look: { ao: 0.8, contrast: 1.1, saturation: 1.1, warmth: -0.01, bloom: 0.42 },

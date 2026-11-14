@@ -51,7 +51,7 @@ export const kvarteret = {
     hemi: { sky: 0x9cc4ff, ground: 0x4c6238, intensity: 0.42 },
     exposure: 1.05,
     envIntensity: 0.45,
-    shadow: { range: 24, size: 4096 },
+    shadow: { range: 24, size: 3072 },
   },
   skyDome: { top: 0x0f55c4, horizon: 0x7fbdf2, cloud: 0xfffaf0, cloudShade: 0x8fa6c6, coverage: 0.46 },
   look: { ao: 0.8, contrast: 1.14, saturation: 1.16, warmth: 0.025, bloom: 0.28 },

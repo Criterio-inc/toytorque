@@ -33,7 +33,7 @@ export const kryssaren = {
   lighting: {
     sun: { color: 0xfff3de, intensity: 3.1, offset: SUN },
     hemi: { sky: 0xbddcff, ground: 0x8a6a48, intensity: 0.55 },
-    shadow: { range: 22, size: 4096 },
+    shadow: { range: 22, size: 3072 },
     exposure: 1.0,
     envIntensity: 0.6,
   },

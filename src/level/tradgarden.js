@@ -89,7 +89,7 @@ export const tradgarden = {
   lighting: {
     sun: { color: 0xffecc8, intensity: 3.3, offset: [16, 20, 10] },
     hemi: { sky: 0xaecfff, ground: 0x4f6c32, intensity: 0.5 },
-    shadow: { range: 24, size: 4096 },
+    shadow: { range: 24, size: 3072 },
     exposure: 1.08,
     envIntensity: 0.6,
   },
