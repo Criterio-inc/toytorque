@@ -925,6 +925,33 @@ if (!only || only === 'karta') {
   check('Minikarta', okRect && outside.length === 0, `rektangel ${okRect ? 'rätt' : 'FEL'}, banor utanför kartan: ${outside.join(', ') || 'inga'} (${FIELD_LEVELS.length} banor)`);
 }
 
+// 11f. Rivaler: en i taget, seger öppnar nästa, tre rivaler ger en bil (kör: npm test rivaler)
+if (!only || only === 'rivaler') {
+  const store = {};
+  globalThis.localStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); } };
+  const R = await import('../src/race/rivals.js');
+  const ids = [...ALL_LEVELS.map((l) => l.id)];
+  const dataOk = R.RIVALS.length === 8 && new Set(R.RIVALS.map((r) => r.id)).size === 8 && new Set(R.RIVALS.map((r) => r.name)).size === 8
+    && R.RIVALS.every((r) => ids.includes(r.level) && (!r.evening || ALL_LEVELS.find((l) => l.id === r.level).evening) && (!r.reward || CARS[r.reward]) && r.line.length > 10)
+    && R.RIVALS.every((r, i) => i === 0 || r.skill >= R.RIVALS[i - 1].skill);
+  const open0 = R.RIVALS.map((_, i) => R.isRivalOpen(i)).join('');
+  const lost = R.recordDuel('kork', 2);
+  const win = R.recordDuel('kork', 1), again = R.recordDuel('kork', 1);
+  const open1 = R.RIVALS.map((_, i) => R.isRivalOpen(i)).join('');
+  R.recordDuel('fjader', 1);
+  const rut = R.recordDuel('rut', 1);
+  store['revolt.rivals'] = '{"beaten":["kork",7,"finns-inte","kork"]}';
+  const bad = R.loadRivals();
+  store['revolt.rivals'] = JSON.stringify({ beaten: R.RIVALS.map((r) => r.id).slice(0, 7) });
+  const last = R.recordDuel('mastaren', 1);
+  const e = R.rivalEntry(R.RIVALS[3], CARS.rasket);
+  check('Rivaler', dataOk && open0 === 'truefalsefalsefalsefalsefalsefalsefalse' && !lost.won && win.won && win.first && win.next.id === 'fjader' && !again.first
+    && open1.startsWith('truetruefalse') && rut.cars.join() === 'giraffen' && bad.beaten.join() === 'kork' && last.all && !last.next
+    && e.name === 'Bromsklossen' && e.def.cls === 'Rookie' && e.def.id !== 'rasket' && e.def.colors.body === R.RIVALS[3].colors.body,
+    `8 rivaler på ${new Set(R.RIVALS.map((r) => r.level)).size} banor, första segern öppnar ${win.next.name}, ${rut.cars} vid tredje, trasig sparfil ${bad.beaten.join() === 'kork' ? 'rättad' : 'FEL'}, sista ger ${last.cars.join() || 'ingen ny bil'}`);
+  delete globalThis.localStorage;
+}
+
 // 12. Upplåsning: startbilar, cuper, snabbspår, tidsutmaning och trasig sparfil
 if (!only) {
   const store = {};

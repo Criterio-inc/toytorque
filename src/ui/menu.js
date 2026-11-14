@@ -1,5 +1,6 @@
 import { CARS, CAR_ORDER, carStats } from '../vehicle/carDefs.js';
 import { CUPS, Championship, loadProgress, QUALIFY } from '../race/championship.js';
+import { RIVALS, loadRivals, isRivalOpen, recordDuel } from '../race/rivals.js';
 import { formatTime, ordinal } from './hud.js';
 import { isCarUnlocked, isCupOpen, unlockHint, applyTimeTrial, progressSummary, setDevAll, resetProgress, CHALLENGE, fmt as fmtChallenge } from '../race/progress.js';
 import { loadStuntProgress } from '../stunt/stunt.js';
@@ -126,6 +127,8 @@ export class Menu {
     this.screen = null;
     this.flow = null;
     this.cup = null;
+    this.rival = null;
+    this.game.evening = !!this.settings.evening; // en rivalduell kan ha bytt till kväll
     this.game.setup({ mode: 'demo', level: this._randomLevel() });
     this.game.audio?.playMusic?.('menu');
     this.go(this.mainScreen(), { replace: true });
@@ -192,7 +195,7 @@ export class Menu {
       if (this.resultShown && this._finishAt && performance.now() - this._finishAt > 2600) {
         this._finishAt = 0;
         this.stack = [];
-        this.go(this.flow === 'cup' ? this.cupResultScreen() : this.resultScreen(), { replace: true });
+        this.go(this.flow === 'cup' ? this.cupResultScreen() : this.flow === 'rival' ? this.rivalResultScreen() : this.resultScreen(), { replace: true });
       }
     }
   }
@@ -204,6 +207,7 @@ export class Menu {
       items: [
         { label: 'Enkelt lopp', select: () => { this.flow = 'race'; this.go(this.carScreen(() => this.go(this.trackScreen(() => this.startRace())))); } },
         { label: 'Mästerskap', select: () => { this.flow = 'cup'; this.go(this.cupScreen()); } },
+        { get label() { return `Rivaler <small>${loadRivals().beaten.length}/${RIVALS.length}</small>`; }, select: () => { this.flow = 'rival'; this.go(this.rivalScreen()); } },
         { label: 'Två spelare', select: () => { this.flow = 'race2'; this.go(this.carScreen(() => this.go(this.carScreen(() => this.go(this.trackScreen(() => this.startRace(2))), 2)))); } },
         { label: 'Tidskörning', select: () => { this.flow = 'timetrial'; this.go(this.carScreen(() => this.go(this.trackScreen(() => this.startTimeTrial())))); } },
         // --- Stuntläge: fri körning i Stuntarenan ---
@@ -289,6 +293,67 @@ export class Menu {
       hint: '↑↓ bana · ◀▶ dag eller kväll · Enter kör · Esc tillbaka',
     };
     return scr;
+  }
+
+  // --- Rivaler: dueller en mot en, en rival i taget (race/rivals.js) ---
+  rivalScreen() {
+    const st = loadRivals();
+    const cur = () => RIVALS[this.index] || RIVALS[0];
+    return {
+      title: 'Rivaler',
+      items: RIVALS.map((r, i) => {
+        const open = isRivalOpen(i, st);
+        return {
+          label: `${open ? r.name : '???'}${st.beaten.includes(r.id) ? ' ★' : ''}${open ? '' : ' (låst)'}`,
+          disabled: !open,
+          select: () => { this.rival = r; this.go(this.carScreen(() => this.startDuel())); },
+        };
+      }),
+      side: () => {
+        const r = cur(), open = isRivalOpen(RIVALS.indexOf(r), st);
+        return `<div class="card"><h3>${open ? r.name : 'Okänd rival'}</h3>
+          <p>${open ? `”${r.line}”` : 'Slå rivalen före för att få veta vem det är.'}</p>
+          <p class="meta">${open ? `${this._levelName(r.level)}${r.evening ? ' på kvällen' : ''} · ${r.laps} varv · en mot en` : ''}</p>
+          ${open && r.reward ? `<p class="meta">Vinsten: ${CARS[r.reward].name}</p>` : ''}
+          <p class="meta">Rivalen kör en bil ur samma klass som din. Kom först i mål för att gå vidare.</p></div>`;
+      },
+      enter: () => { this.index = Math.min(RIVALS.length - 1, st.beaten.length); this.render(); this._demoBehind(); },
+      onMove: () => this.render(),
+      hint: '↑↓ välj rival · Enter · Esc tillbaka',
+    };
+  }
+
+  startDuel() {
+    const r = this.rival;
+    this.stack = [];
+    this.hide();
+    this.game.evening = !!r.evening;
+    this.game.raceInfo = { mode: 'Rivalduell', stage: r.name };
+    this.game.setup({ mode: 'race', level: r.level, carId: this.sel.carId, opponents: 1, laps: r.laps, weapons: true, rival: r });
+    this.game.audio?.playMusic?.(r.level);
+    this._swallow();
+  }
+
+  // Får bara anropas en gång per målgång: segern sparas här
+  rivalResultScreen() {
+    const r = this.rival, res = recordDuel(r.id, this.game.racer.position);
+    const items = [];
+    if (res.next) items.push({ label: `Nästa rival: ${res.next.name}`, select: () => { this.rival = res.next; this.startDuel(); } });
+    items.push({ label: res.won ? 'Kör duellen igen' : 'Försök igen', select: () => this.startDuel() });
+    items.push(...this._replayItem(() => scr));
+    items.push({ label: 'Till startmenyn', select: () => this.home() });
+    const scr = {
+      title: res.all && res.first ? 'Alla rivaler slagna!' : res.won ? `Du slog ${r.name}!` : `${r.name} vann`,
+      sub: `${this.game.levelDef.name} · ${CARS[this.game.carId].name}`,
+      items,
+      side: () => `<div class="card"><h3>Duell</h3>
+        <p>${res.won ? (res.next ? `Nästa rival väntar: <b>${res.next.name}</b>.` : 'Det finns ingen kvar att slå. Du är snabbast.') : `”${r.line}”`}</p>
+        <p>Total tid: <b>${formatTime(this.game.racer.finishTime) ?? '--'}</b></p>
+        ${resultsTable(this.game.race.racers)}</div>`,
+      onBack: () => this.home(),
+      hint: 'Enter välj',
+    };
+    return this._withUnlocks(res.cars, scr);
   }
 
   cupScreen() {
@@ -535,7 +600,7 @@ export class Menu {
 
   _restart() {
     const g = this.game;
-    g.setup({ mode: g.mode, level: g.levelDef.id, carId: g.carId, laps: g.opts.laps, weapons: g.opts.weapons, players: g.opts.players, carId2: g.opts.carId2 });
+    g.setup({ mode: g.mode, level: g.levelDef.id, carId: g.carId, laps: g.opts.laps, weapons: g.opts.weapons, players: g.opts.players, carId2: g.opts.carId2, rival: g.opts.rival });
     this._swallow();
   }
 
