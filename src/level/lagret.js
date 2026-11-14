@@ -3,6 +3,7 @@ import {
   edgeSegments, edgeColliders, WarehouseBatch, addBoxStackB, addPalletB, addLoadedPalletB, addForklift,
   addRackTunnel, addGuardRail, addPlankRamp,
 } from './warehouseArt.js';
+import { cartonWall } from './stacks.js';
 
 // ---------------------------------------------------------------------------
 // Nivå: Lagret. Leksakslager i riktig skala (meter) med en åtta där banan går
@@ -55,13 +56,14 @@ export const lagret = {
       { at: [C, 5], y: 0 },
       // Hoppet på vänster raka: rak ramp ända ut i kanten, glapp, landning ner
       { at: [-C, 7], y: 0 },
-      { at: [-C, 4], y: 0.06 },
-      { at: [-C, -1.5], y: 0.46, linear: true },
-      { at: [-C, -2.7], y: 0.32, linear: true },
-      { at: [-C, -5.5], y: 0.14, linear: true },
+      { at: [-C, 4], y: 0.08 },
+      { at: [-C, -1.5], y: 0.7, linear: true },
+      { at: [-C, -2.7], y: 0.5, linear: true },
+      { at: [-C, -6.5], y: 0.2, linear: true },
       { at: [-C, -11], y: 0 },
     ],
     gaps: [{ from: [-C, -1.5], to: [-C, -2.7] }],
+    airZones: [{ from: [-C, 6], to: [-C, -1.6] }], // det höga hoppet: bilarna hålls plana i luften
     // Doserat hörn av lastpallar i sydöstra hörnet
     bank: [{ at: [C, -C], deg: 15, fade: 6 }],
     // Pallställets tunnel på vänster raka: ställets sparklister är kanten.
@@ -183,6 +185,9 @@ export const lagret = {
     { kind: 'ball', cp: 12, lateral: -0.6, color: 0xfdd835 },
     { kind: 'can', cp: 4, lateral: 0.7, color: 0x43a047 },
     { kind: 'cone', cp: 14, lateral: -0.9, color: 0xff7043 },
+    // Saker att köra rakt igenom, på diagonalen under bron (banans enda plana raka)
+    { kind: 'bigball', at: 0.3, lateral: 1.2, color: 0x2f9be8, roll: { period: 6, speed: 3 } },
+    ...cartonWall(0.26, { lateral: 0.95, across: 4, layers: 2 }),
   ],
 };
 

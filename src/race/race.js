@@ -72,12 +72,23 @@ export class Race {
       this.time += dt;
     }
     const T = this.track;
+    // Rullande hinder: tillbaka till startplatsen och iväg tvärs över vägen varje period
+    if (T.rollers && this.running) for (const m of T.rollers) {
+      const k = Math.floor((this.time + m.phase) / m.period);
+      if (k === m.k) continue;
+      m.k = k;
+      m.body.setTranslation({ x: m.x, y: m.y, z: m.z }, true);
+      m.body.setLinvel({ x: m.vx, y: 0, z: m.vz }, true);
+      m.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
     for (const r of this.racers) {
       const p = r.vehicle.position;
       let near = T.nearest(p.x, p.z, r.trackIndex, 40, p.y);
       // Långt från huvudbanan (genväg, avåkning): sök hela banan
       if (near.d2 > (T.roadHalf + 1.5) ** 2) near = T.nearest(p.x, p.z, -1, 40, p.y);
       r.trackIndex = near.index;
+      // Stora hopp: bilen får hjälp att hålla sig plan i luften om den lyfter inom zonen
+      if (T.airZones && r.vehicle.grounded > 0) r.vehicle.airHelp = T.airZones.some(([a, b]) => near.index >= a && near.index <= b) ? 0.7 : 0;
       const roadY = T.surfaceY ? T.surfaceY(near.index, Math.max(-T.roadHalf, Math.min(T.roadHalf, near.lateral))) : T.pts[near.index].y;
       const onRoad = Math.abs(near.lateral) < T.roadHalf && p.y > roadY - 0.1 && p.y < roadY + 0.5;
       if (onRoad && r.vehicle.grounded >= 2 && !T.isGap[near.index]) r.lastValidIndex = near.index;

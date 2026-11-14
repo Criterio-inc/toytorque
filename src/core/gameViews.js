@@ -107,6 +107,19 @@ export function applyLighting(g, Lt) {
   g.hemi.intensity = hemi.intensity ?? 0.75;
   g.renderer.toneMappingExposure = Lt.exposure ?? 1.05;
   g.scene.environmentIntensity = Lt.envIntensity ?? 0.55;
+  // envFromSky: blanka ytor speglar banans egen himmel (kväll med våt väg).
+  // Himlen ritas en gång till en liten omgivningsbild när banan laddas.
+  g.skyEnv?.dispose();
+  g.skyEnv = null;
+  if (Lt.envFromSky && g.sky) {
+    const tmp = new THREE.Scene(), parent = g.sky.parent;
+    tmp.add(g.sky);
+    const pm = new THREE.PMREMGenerator(g.renderer);
+    g.skyEnv = pm.fromScene(tmp, 0.02, 0.1, 400);
+    pm.dispose();
+    parent?.add(g.sky);
+  }
+  g.scene.environment = g.skyEnv ? g.skyEnv.texture : g.roomEnv;
   const range = sh.range ?? 7, size = sh.size ?? 2048;
   const sc = g.sun.shadow.camera;
   sc.left = sc.bottom = -range; sc.right = sc.top = range;

@@ -28,7 +28,7 @@ const carId = CARS[params.get('car')] ? params.get('car') : 'rasket';
 const level = LEVELS.find((l) => l.id === params.get('level')) || LEVELS[0];
 const opponents = params.has('ai') ? Math.max(0, Math.min(7, +params.get('ai') || 0)) : 7;
 
-const game = new Game(RAPIER, { container: document.getElementById('app'), levels: LEVELS, extraLevels: [stuntarena], level, carId, opponents, difficulty: params.get('diff') || 'normal' });
+const game = new Game(RAPIER, { container: document.getElementById('app'), levels: LEVELS, extraLevels: [stuntarena], level, carId, opponents, difficulty: params.get('diff') || 'normal', evening: params.has('kvall') }); // ?kvall=1: kvällsvarianten direkt
 attachAudio(game); // procedurellt ljud, startar vid första tangent/klick
 document.getElementById('loading').remove();
 game.run();

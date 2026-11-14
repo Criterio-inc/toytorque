@@ -25,6 +25,8 @@ import { Replay } from '../race/replay.js';
 import { StuntSession } from '../stunt/stunt.js';
 import { renderSplit, direct, makeSkyTexture, applyLighting } from './gameViews.js';
 import { makeSkyDome } from './sky.js';
+import { evening } from '../level/evening.js';
+import { Juice } from './juice.js';
 import { Rewind } from '../race/rewind.js';
 import { StuntBonus } from '../race/stuntBonus.js';
 import { Minimap, loadMapOn, carColor } from '../ui/minimap.js';
@@ -37,11 +39,11 @@ import { Minimap, loadMapOn, carColor } from '../ui/minimap.js';
 const BASE_FOV = 60;
 
 export class Game {
-  constructor(RAPIER, { container, levels, extraLevels = [], level, carId = 'rasket', opponents = 7, difficulty = 'normal' }) {
+  constructor(RAPIER, { container, levels, extraLevels = [], level, carId = 'rasket', opponents = 7, difficulty = 'normal', evening: dusk = false }) {
     this.RAPIER = RAPIER;
-    this.opponents = opponents;
-    this.difficulty = difficulty;
+    this.opponents = opponents; this.difficulty = difficulty;
     this.assist = 0.4; // spelarnas körhjälp 0..1 (sätts från inställningarna)
+    this.evening = dusk; // kvällsvariant på banor som har en (menyns banval eller ?kvall=1)
     this.levels = levels;
     this.extraLevels = extraLevels; // nivåer utanför banvalet (Stuntarenan)
     this.levelDef = level;
@@ -66,7 +68,7 @@ export class Game {
     this.scene = new THREE.Scene();
     // Miljöbelysning ger blanka golv och lackade bilar något att spegla
     const pmrem = new THREE.PMREMGenerator(renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environment = this.roomEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     this.scene.environmentIntensity = 0.55;
 
     this.camera = new THREE.PerspectiveCamera(BASE_FOV, window.innerWidth / window.innerHeight, 0.03, 200);
@@ -89,10 +91,8 @@ export class Game {
     this.events = new Events();
     // --- Stuntläge: meddelande när en stjärna tas ---
     this.events.on('star', (d) => this.hud.message(d.all ? 'ALLA STJÄRNOR! BONUS UPPLÅST' : `★ ${d.count}/${d.total}`, { time: d.all ? 6 : 1.4 }));
-    // --- Kameraskak: explosioner i närheten och träffar på den egna bilen ---
     this.shakeOn = true; // Inställningar: Skakning
-    this.events.on('explode', (d) => { if (!d.replay) this._shake(d.pos, 0.3 + 0.55 * (d.size ?? 0.6), null); });
-    this.events.on('hit', (d) => this._shake(null, d.kind === 'blast' ? 0.25 : 0.4, d.car));
+    this.juice = new Juice(this); // gnistor, kameraskak, slow motion, konfetti
     // --- Stuntbonus: etikett för spelare 1 ---
     this.events.on('stunt', (d) => { if (d.car === this.p1) this.hud.stuntPop(d.label, d.gain); });
     this.events.on('rewind', (d) => { if (d.car === this.p1) this.hud.rewind(d); });
@@ -163,21 +163,22 @@ export class Game {
 
     this.levelGroup = new THREE.Group();
     this.scene.add(this.levelGroup);
-    this.level = buildLevel({ scene: this.levelGroup, world: this.world, RAPIER: this.RAPIER, level: this.levelDef });
-    const L = this.levelDef;
+    const L = this.evening && this.levelDef.evening ? evening(this.levelDef) : this.levelDef;
+    this.level = buildLevel({ scene: this.levelGroup, world: this.world, RAPIER: this.RAPIER, level: L });
     this.scene.background?.isTexture && this.scene.background.dispose();
     this.scene.background = L.skyGradient ? makeSkyTexture(L.skyGradient) : new THREE.Color(L.sky);
     this.scene.fog = new THREE.Fog(L.fog.color ?? L.sky, L.fog.near, L.fog.far);
-    applyLighting(this, L.lighting || {});
     // Himmelskupol med moln och sol (utomhusbanor som ber om det)
     this.sky = L.skyDome ? makeSkyDome({ haze: L.fog.color ?? L.sky, ...L.skyDome }, L.lighting?.sun?.offset, L.lighting?.sun?.color) : null;
     if (this.sky) this.levelGroup.add(this.sky);
+    applyLighting(this, L.lighting || {});
     this.track = this.level.track;
     this.trackGroup = this.level.trackGroup;
 
     this.skids = new Skidmarks(this.levelGroup);
     this.dust = new Dust(this.levelGroup, this.levelDef.dust ?? DUST[this.levelDef.id] ?? 0xcfcfcf);
-    this.post.setLook(this.levelDef.look || {});
+    this.juice.build(this.levelGroup);
+    this.post.setLook(L.look || {});
     const mode = this.opts.mode;
     const quiet = mode === 'demo' || mode === 'showroom';
     const stunt = mode === 'stunt'; // fri körning: inga varv, ingen nedräkning
@@ -242,7 +243,7 @@ export class Game {
       const info = this.raceInfo || {};
       this.hud.showInfo({
         mode: info.mode || (mode === 'timetrial' ? 'Tidskörning' : 'Enkelt lopp'),
-        stage: info.stage, track: this.levelDef.name,
+        stage: info.stage, track: L.name,
         length: `${Math.round(this.track.length)} m`, laps: laps,
       }, this.race.introLen);
       this.raceInfo = null;
@@ -264,19 +265,6 @@ export class Game {
     this.hud.setSplit?.(!!this.p2);
     this.lastLap = 1;
     this.acc = 0;
-  }
-
-  // Skaka varje kamera efter avståndet från dess bil (delad skärm: var och en för sig)
-  _shake(pos, amount, car) {
-    if (!this.shakeOn || this.replaying) return;
-    const pairs = [[this.chase, this.p1], [this.chase2, this.p2]];
-    for (const [cam, own] of pairs) {
-      if (!cam || !own) continue;
-      if (car) { if (car === own) cam.addShake(amount); continue; }
-      const d = own.vehicle.currPos.distanceTo(pos);
-      const k = Math.max(0, 1 - d / 5);
-      if (k > 0) cam.addShake(amount * k * k);
-    }
   }
 
   _addCar(vehicle, ai, name, isPlayer) {
@@ -405,7 +393,7 @@ export class Game {
     if (this.replaying) { this.input.actions(); this.render(dt); return; }
     // --- slut repris ---
     this.handleActions();
-    if (this.paused) dt = 0;
+    dt = this.paused ? 0 : this.juice.time(dt);
     this.acc += dt;
     let n = 0;
     while (this.acc >= STEP && n < MAX_STEPS_PER_FRAME) {
@@ -436,6 +424,7 @@ export class Game {
     this.weapons.render(dt);
     this.skids.flush();
     this.dust.update(dt);
+    this.juice.update(dt);
 
     this.ghost?.render(alpha);
     this.startFx?.update(dt, this.race);

@@ -51,13 +51,14 @@ export const tradgarden = {
       { at: [31, 18], y: 0 },
       // Hoppet över rännan på vänsterrakan
       { at: [-31, 1], y: 0 },
-      { at: [-31, -2], y: 0.06 },
-      { at: [-31, -7.5], y: 0.46, linear: true },
-      { at: [-31, -8.7], y: 0.32, linear: true },
-      { at: [-31, -11.5], y: 0.14, linear: true },
+      { at: [-31, -2], y: 0.08 },
+      { at: [-31, -7.5], y: 0.7, linear: true },
+      { at: [-31, -8.7], y: 0.5, linear: true },
+      { at: [-31, -12.5], y: 0.2, linear: true },
       { at: [-31, -17], y: 0 },
     ],
     gaps: [{ from: [-31, -7.5], to: [-31, -8.7] }],
+    airZones: [{ from: [-31, 0], to: [-31, -7.6] }], // det höga hoppet: bilarna hålls plana i luften
     // Hårnålen i V:ets botten ligger i en sluttande gräsvall (doserad)
     bank: [{ at: [-4, 12], deg: 15, fade: 6 }],
     // Pergolan efter starten och genvägens av- och påfart saknar vallar:
@@ -89,7 +90,7 @@ export const tradgarden = {
   lighting: {
     sun: { color: 0xffecc8, intensity: 3.3, offset: [16, 20, 10] },
     hemi: { sky: 0xaecfff, ground: 0x4f6c32, intensity: 0.5 },
-    shadow: { range: 24, size: 4096 },
+    shadow: { range: 24, size: 3072 },
     exposure: 1.08,
     envIntensity: 0.6,
   },
@@ -97,6 +98,7 @@ export const tradgarden = {
   statics: [],
   props: [],
 
+  evening: true, // banan har en kvällsvariant (level/evening.js), väljs med ◀▶ i banvalet
   environment({ scene, world, RAPIER, track }) {
     return buildGarden({ scene, world, RAPIER, track });
   },

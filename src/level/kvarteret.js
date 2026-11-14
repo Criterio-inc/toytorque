@@ -5,6 +5,7 @@ import {
   addFarTrees, addLooseBall, addPlankFence, addCone, addBoomGate, addBooth, addDigger, addDirtPatch,
   addDirtPile, addTunnel, fitShortcutOpenings, VERGE, WALK, rng,
 } from './hoodArt.js';
+import { cartonWall, canPyramid, coneRow } from './stacks.js';
 
 // ---------------------------------------------------------------------------
 // Nivå: Kvarteret. Amerikanskt villakvarter en solig eftermiddag i riktig
@@ -50,7 +51,7 @@ export const kvarteret = {
     hemi: { sky: 0x9cc4ff, ground: 0x4c6238, intensity: 0.42 },
     exposure: 1.05,
     envIntensity: 0.45,
-    shadow: { range: 24, size: 4096 },
+    shadow: { range: 24, size: 3072 },
   },
   skyDome: { top: 0x0f55c4, horizon: 0x7fbdf2, cloud: 0xfffaf0, cloudShade: 0x8fa6c6, coverage: 0.46 },
   look: { ao: 0.8, contrast: 1.14, saturation: 1.16, warmth: 0.025, bloom: 0.28 },
@@ -127,10 +128,19 @@ export const kvarteret = {
   },
 
   statics: [],
-  props: [],
+  // Saker att köra rakt igenom: flyttkartonger på Maple Street, koner vid bygget, burkar på Elm Street
+  props: [
+    // Vid sidan av körlinjen: den som vill kör rakt igenom, den som siktar på tid kör förbi
+    ...coneRow(0.436, { lateral: 1.45, count: 5, gap: 0.8 }),
+    // En badboll som studsar fram och tillbaka över gatan
+    { kind: 'bigball', at: 0.762, along: 3, lateral: 1.5, color: 0xff5a4a, roll: { period: 7, speed: 3 } },
+    ...canPyramid(0.465, { lateral: -1.2, base: 4 }),
+    ...cartonWall(0.757, { lateral: -1.25, across: 4, layers: 2 }),
+  ],
 
+  evening: true, // banan har en kvällsvariant (level/evening.js), väljs med ◀▶ i banvalet
   environment({ scene, world, RAPIER, track }) {
-    return buildHood({ scene, world, RAPIER, track });
+    return buildHood({ scene, world, RAPIER, track, night: !!this.night });
   },
 };
 
@@ -156,8 +166,9 @@ const FRONTAGE = [
   { a: [WEST, -100], b: [WEST, 100] },
 ];
 
-function buildHood({ scene, world, RAPIER, track }) {
+function buildHood({ scene, world, RAPIER, track, night = false }) {
   const B = scene ? new HoodBatch() : null;
+  if (B) B.night = night; // kvällsvarianten tänder lyktorna
   const r = rng(2024);
   const { roadHalf } = track;
   const curbOut = roadHalf + track.barrier.thick;

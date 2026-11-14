@@ -70,10 +70,10 @@ export const supermarket = {
     elevation: [
       // Kampanjhoppet på kassastråket: rak ramp ända ut i kanten, glapp, landning
       { at: [-14, FRONT], y: 0 },
-      { at: [-11, FRONT], y: 0.06 },
-      { at: [-5.5, FRONT], y: 0.46, linear: true },
-      { at: [-4.3, FRONT], y: 0.32, linear: true },
-      { at: [-0.5, FRONT], y: 0.14, linear: true },
+      { at: [-11, FRONT], y: 0.08 },
+      { at: [-5.5, FRONT], y: 0.7, linear: true },
+      { at: [-4.3, FRONT], y: 0.5, linear: true },
+      { at: [0.5, FRONT], y: 0.2, linear: true },
       { at: [6, FRONT], y: 0 },
       // Pallpuckeln mitt i gång 8: uppför, krön och nedför
       { at: [28, -6], y: 0 },
@@ -89,6 +89,7 @@ export const supermarket = {
       { at: [-21, BACK], y: 0 },
     ],
     gaps: [{ from: [-5.5, FRONT], to: [-4.3, FRONT] }, { from: [-10, BACK], to: [-11.2, BACK] }],
+    airZones: [{ from: [-13, FRONT], to: [-5.6, FRONT] }], // kampanjhoppet: bilarna hålls plana i luften
     // Kurvan ut ur frysgången är doserad (pallar under vägen)
     bank: [{ at: [WEST, FRONT], deg: 14, fade: 4 }],
     // Genom hyllorna: från gång 7 tvärs över till gång 6 (hoppar över hörnet vid kassorna)

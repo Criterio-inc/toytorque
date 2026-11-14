@@ -87,13 +87,14 @@ export const kitchen = {
       // Hoppet framför spisen: skärbräda på kokböcker ända ut i kanten,
       // glapp, landning på en bakplåt
       { at: [-3, NZ], y: 0 },
-      { at: [0, NZ], y: 0.06 },
-      { at: [6.5, NZ], y: 0.46, linear: true },
-      { at: [7.7, NZ], y: 0.32, linear: true },
-      { at: [10.5, NZ], y: 0.14, linear: true },
+      { at: [0, NZ], y: 0.08 },
+      { at: [6.5, NZ], y: 0.7, linear: true },
+      { at: [7.7, NZ], y: 0.5, linear: true },
+      { at: [11.5, NZ], y: 0.2, linear: true },
       { at: [14.2, NZ], y: 0 },
     ],
     gaps: [{ from: [6.5, NZ], to: [7.7, NZ] }],
+    airZones: [{ from: [-2, NZ], to: [6.4, NZ] }], // det höga hoppet: bilarna hålls plana i luften
     bank: [{ at: [WX, NZ], deg: 14, fade: 2 }],
     // Under matbordet är benen kanten
     openings: [{ from: [DX, 3.3], to: [DX, 5.9] }],
