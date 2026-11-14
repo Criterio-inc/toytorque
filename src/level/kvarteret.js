@@ -132,6 +132,8 @@ export const kvarteret = {
   props: [
     // Vid sidan av körlinjen: den som vill kör rakt igenom, den som siktar på tid kör förbi
     ...coneRow(0.436, { lateral: 1.45, count: 5, gap: 0.8 }),
+    // En badboll som studsar fram och tillbaka över gatan
+    { kind: 'bigball', at: 0.762, along: 3, lateral: 1.5, color: 0xff5a4a, roll: { period: 7, speed: 3 } },
     ...canPyramid(0.465, { lateral: -1.2, base: 4 }),
     ...cartonWall(0.757, { lateral: -1.25, across: 4, layers: 2 }),
   ],

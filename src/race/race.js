@@ -72,6 +72,15 @@ export class Race {
       this.time += dt;
     }
     const T = this.track;
+    // Rullande hinder: tillbaka till startplatsen och iväg tvärs över vägen varje period
+    if (T.rollers && this.running) for (const m of T.rollers) {
+      const k = Math.floor((this.time + m.phase) / m.period);
+      if (k === m.k) continue;
+      m.k = k;
+      m.body.setTranslation({ x: m.x, y: m.y, z: m.z }, true);
+      m.body.setLinvel({ x: m.vx, y: 0, z: m.vz }, true);
+      m.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
     for (const r of this.racers) {
       const p = r.vehicle.position;
       let near = T.nearest(p.x, p.z, r.trackIndex, 40, p.y);

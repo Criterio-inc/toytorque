@@ -186,6 +186,7 @@ export const lagret = {
     { kind: 'can', cp: 4, lateral: 0.7, color: 0x43a047 },
     { kind: 'cone', cp: 14, lateral: -0.9, color: 0xff7043 },
     // Saker att köra rakt igenom, på diagonalen under bron (banans enda plana raka)
+    { kind: 'bigball', at: 0.3, lateral: 1.2, color: 0x2f9be8, roll: { period: 6, speed: 3 } },
     ...cartonWall(0.26, { lateral: 0.95, across: 4, layers: 2 }),
   ],
 };

@@ -12,6 +12,7 @@ const PROP_KINDS = {
   can: { shape: 'cyl', r: 0.034, h: 0.12, mass: 0.08, friction: 0.4, restitution: 0.25 },
   carton: { shape: 'box', s: 0.2, mass: 0.03, friction: 0.5, restitution: 0.1 }, // tom kartong: flyger undan
   tin: { shape: 'cyl', r: 0.034, h: 0.12, mass: 0.02, friction: 0.4, restitution: 0.25 }, // tom burk i en pyramid
+  bigball: { shape: 'ball', r: 0.28, mass: 0.1, friction: 0.5, restitution: 0.75 }, // badboll som rullar över vägen
   block: { shape: 'box', s: 0.09, mass: 0.12, friction: 0.6, restitution: 0.15 },
   ball: { shape: 'ball', r: 0.16, mass: 0.12, friction: 0.6, restitution: 0.7 },
 };
@@ -55,6 +56,12 @@ export function buildLevel({ scene = null, world, RAPIER, level }) {
       body
     );
     props.push({ body, kind: p.kind, spec: k, color: p.color, mesh: null, spawn: { x: pose.x, y, z: pose.z } });
+    // roll: { period, speed, phase }: föremålet rullas tvärs över vägen från sin plats och
+    // börjar om varje period (race.js sköter klockan, så det går lika i tester och spel)
+    if (p.roll) {
+      const n = track.normals[((base % track.N) + track.N) % track.N], dir = -Math.sign(p.lateral || 1) * (p.roll.speed ?? 3);
+      (track.rollers ||= []).push({ body, x: pose.x, y, z: pose.z, vx: n.x * dir, vz: n.z * dir, period: p.roll.period ?? 6, phase: p.roll.phase ?? 0, k: -1 });
+    }
   }
 
   const result = { track, props, half, level };
