@@ -1,4 +1,5 @@
 import { Bits } from '../vehicle/sparks.js';
+import { Headlights } from '../vehicle/headlights.js';
 
 // ---------------------------------------------------------------------------
 // Känsla: det som inte ändrar loppet men gör att det händer något i bild.
@@ -39,6 +40,7 @@ export class Juice {
     this.confetti = new Bits(group, { max: 400, glow: false, gravity: 2.2, drag: 1.6 });
     this.scale = 1;
     this.slowT = 0;
+    this.lights = null; // strålkastare skapas vid första bilden, när bilarna finns
   }
 
   // Skaka varje kamera efter avståndet från dess bil (delad skärm: var och en för sig)
@@ -67,6 +69,9 @@ export class Juice {
   // En gång per bild
   update(dt) {
     const g = this.game;
+    // Kvällsbanor: strålkastare och bakljus (inte i bilvalet)
+    if (!this.lights && g.level?.level?.night && g.mode !== 'showroom') this.lights = new Headlights(g.cars, g.mode === 'demo' ? null : g.p1);
+    this.lights?.update();
     for (const car of g.cars) {
       const v = car.vehicle;
       // Skrapar längs en vägg i fart: en tunn rad gnistor

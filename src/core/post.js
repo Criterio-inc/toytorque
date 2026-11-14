@@ -72,12 +72,12 @@ export class Post {
     // bildpunkterna ger samma intryck för en bråkdel av kostnaden.
     const aoSize = this.ao.setSize.bind(this.ao);
     this.ao.setSize = (w, h) => aoSize(Math.ceil(w * AO_SCALE), Math.ceil(h * AO_SCALE));
-    // Urklippta ytor (bladtofsar, ris) ritas som hela rutor i hörnskuggornas djupbild
+    // Urklippta ytor (bladtofsar, ris), ljussken och lampglöd ritas som hela rutor i hörnskuggornas djupbild
     // och ger då mörka fyrkanter runt sig. De hålls utanför den bilden.
     const ao = this.ao;
     ao.overrideVisibility = () => scene.traverse((o) => {
       ao._visibilityCache.set(o, o.visible);
-      if (o.isPoints || o.isLine || (o.isMesh && o.material?.alphaTest > 0)) o.visible = false;
+      if (o.isPoints || o.isLine || o.isSprite || (o.isMesh && (o.material?.alphaTest > 0 || o.material?.blending === THREE.AdditiveBlending))) o.visible = false;
     });
     this.composer.addPass(this.ao);
     // Glöden är suddig av naturen: halva upplösningen ger samma bild för en fjärdedel av arbetet
