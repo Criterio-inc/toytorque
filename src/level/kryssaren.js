@@ -104,6 +104,7 @@ export const kryssaren = {
   statics: [],
   props: [],
 
+  evening: true, // banan har en kvällsvariant (level/evening.js), väljs med ◀▶ i banvalet
   environment({ scene, world, RAPIER, track }) {
     makeSea(scene, { sunDir: SUN });
     makeHull(scene, world, RAPIER, { pool: POOL });

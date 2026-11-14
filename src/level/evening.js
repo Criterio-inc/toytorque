@@ -33,6 +33,8 @@ export function evening(level) {
   return {
     ...level,
     ...DUSK,
+    // Banor med vanlig väg (inte Kvarterets egna gator) får den våt via vägtemat
+    trackTheme: { ...level.trackTheme, roadRough: 0.22, wet: true },
     night: true,
     name: `${level.name}, kväll`,
     environment(ctx) {

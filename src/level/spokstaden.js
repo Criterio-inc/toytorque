@@ -100,6 +100,7 @@ export const spokstaden = {
   statics: [],
   props: [],
 
+  evening: true, // banan har en kvällsvariant (level/evening.js), väljs med ◀▶ i banvalet
   environment({ scene, world, RAPIER, track }) {
     const B = scene ? new ArtBatch() : null;
     const loose = [];

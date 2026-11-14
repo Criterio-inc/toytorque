@@ -625,6 +625,8 @@ export function buildTrackMesh(scene, data, theme = {}) {
     map: roadMap, normalMap: bumpFrom(roadMap, theme.roadBump ?? 1.6), roughness: theme.roadRough ?? 0.75,
     polygonOffset: true, polygonOffsetFactor: -2,
   });
+  // Våt väg (kvällsvarianten): mörkare, blankare och med utjämnade korn
+  if (theme.wet) { roadMat.color.multiplyScalar(0.6); roadMat.envMapIntensity = 1.6; roadMat.normalScale.set(0.22, 0.22); }
   meshFor(data, theme, group, roadMat);
   for (const sc of data.shortcuts || []) meshFor(sc.path, theme, group, roadMat);
 

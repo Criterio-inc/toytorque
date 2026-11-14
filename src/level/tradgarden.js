@@ -98,6 +98,7 @@ export const tradgarden = {
   statics: [],
   props: [],
 
+  evening: true, // banan har en kvällsvariant (level/evening.js), väljs med ◀▶ i banvalet
   environment({ scene, world, RAPIER, track }) {
     return buildGarden({ scene, world, RAPIER, track });
   },
