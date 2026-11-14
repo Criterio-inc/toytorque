@@ -20,7 +20,7 @@ import { Post } from './post.js';
 import { Dust } from '../vehicle/dust.js';
 
 // Dammfärg per bana (sand, grus, gatudamm; annars ljus däckrök)
-const DUST = { spokstaden: 0xd9b88a, tradgarden: 0xcdbb98, kvarteret: 0xb9ad9a, kryssaren: 0xd8cdbd };
+const DUST = { spokstaden: 0xd9b88a, tradgarden: 0xcdbb98, kvarteret: 0xb9ad9a, skejtparken: 0xc4c2ba, kryssaren: 0xd8cdbd };
 import { Replay } from '../race/replay.js';
 import { StuntSession } from '../stunt/stunt.js';
 import { renderSplit, direct, makeSkyTexture, applyLighting } from './gameViews.js';

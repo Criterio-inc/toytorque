@@ -30,7 +30,7 @@ export const CUP_REWARDS = {
 // datorföraren gånger 1,05, avrundat uppåt till halv sekund.
 export const CHALLENGE = {
   kitchen: 25.5, lagret: 21.0, spokstaden: 23.0, kryssaren: 22.5, tradgarden: 23.5,
-  leksaksaffaren: 24.5, museet: 24.5, kvarteret: 28.5, supermarket: 26.0,
+  leksaksaffaren: 24.5, museet: 24.5, kvarteret: 28.5, supermarket: 26.0, skejtparken: 22.0,
 };
 
 // Bonusbilar för slagna utmaningar (de kan också vinnas i sin cup)

@@ -8,6 +8,7 @@ import { tradgarden } from './level/tradgarden.js';
 import { leksaksaffaren } from './level/leksaksaffaren.js';
 import { museet } from './level/museet.js';
 import { kvarteret } from './level/kvarteret.js';
+import { skejtparken } from './level/skejtparken.js';
 import { supermarket } from './level/supermarket.js';
 import { stuntarena } from './level/stuntarena.js';
 import { CARS } from './vehicle/carDefs.js';
@@ -22,7 +23,7 @@ import { attachAudio } from './audio/audio.js';
 
 await RAPIER.init();
 
-const LEVELS = [lagret, kitchen, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket];
+const LEVELS = [lagret, kitchen, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, skejtparken];
 const params = new URLSearchParams(location.search);
 const carId = CARS[params.get('car')] ? params.get('car') : 'rasket';
 const level = LEVELS.find((l) => l.id === params.get('level')) || LEVELS[0];

@@ -16,6 +16,7 @@ import { tradgarden } from '../src/level/tradgarden.js';
 import { leksaksaffaren } from '../src/level/leksaksaffaren.js';
 import { museet } from '../src/level/museet.js';
 import { kvarteret } from '../src/level/kvarteret.js';
+import { skejtparken } from '../src/level/skejtparken.js';
 import { supermarket } from '../src/level/supermarket.js';
 import { Race } from '../src/race/race.js';
 import { PathFollower, AiDriver } from '../src/ai/pathFollower.js';
@@ -81,7 +82,7 @@ function run(world, car, seconds, ctrl) {
   return { minUp };
 }
 
-const ALL_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket];
+const ALL_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, skejtparken];
 // Kurs (gir) ur rotationen och glidvinkel ur farten, i markplanet
 function headingOf(car) {
   const r = car.body.rotation();
@@ -379,7 +380,7 @@ if (!only || only === 'stabilitet') {
 }
 
 // 9. Fullt fält: 8 datorförare på varje nivå ska alla gå i mål utan kaos
-const FIELD_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, ...EDITOR_LEVELS];
+const FIELD_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, skejtparken, ...EDITOR_LEVELS];
 for (const level of FIELD_LEVELS) {
   if (only && only !== 'falt') break; // kör: npm test falt
   const world = createWorld(RAPIER);

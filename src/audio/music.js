@@ -49,6 +49,11 @@ export const TRACKS = {
     kick: 'x...x...x...x..x', snare: '', clap: '....x.......x...', hat: 'x.xxx.xxx.xxx.xx', ohat: '..x...x...x...x.',
     bass: '08080808.8080808', arp: 'xx.xx.xx.xx.xx.x',
   },
+  skejtparken: {
+    bpm: 148, root: 42, scale: 'mixo', prog: [0, 5, 3, 4], swing: 0.04, seed: 61, lead: 'square',
+    kick: 'x...x..xx...x...', snare: '....x.......x.g.', clap: '....x.......x...', hat: 'x.xxx.xxx.xxx.xx', ohat: '......x.......x.',
+    bass: '0.0.8.0.5.5.3.4.', arp: 'xx.x.xx.xx.x.xx.',
+  },
   tradgarden: {
     bpm: 142, root: 36, scale: 'lydian', prog: [0, 1, 4, 3], swing: 0.1, seed: 47, lead: 'square',
     kick: 'x.....x...x..x..', snare: '....x.......x..g', clap: '....x.......x...', hat: 'x.x.xxx.x.x.xxx.', ohat: '',
