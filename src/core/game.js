@@ -12,6 +12,8 @@ import { ChaseCamera } from '../camera/chaseCamera.js';
 import { Hud, ordinal } from '../ui/hud.js';
 import { AiDriver } from '../ai/pathFollower.js';
 import { buildField } from '../race/field.js';
+import { rivalEntry } from '../race/rivals.js';
+import { helpControls } from '../vehicle/driveHelp.js';
 import { WeaponSystem } from '../weapons/weaponSystem.js';
 import { Events } from './events.js';
 import { Ghost } from '../race/ghost.js';
@@ -20,7 +22,7 @@ import { Post } from './post.js';
 import { Dust } from '../vehicle/dust.js';
 
 // Dammfärg per bana (sand, grus, gatudamm; annars ljus däckrök)
-const DUST = { spokstaden: 0xd9b88a, tradgarden: 0xcdbb98, kvarteret: 0xb9ad9a, kryssaren: 0xd8cdbd };
+const DUST = { spokstaden: 0xd9b88a, tradgarden: 0xcdbb98, kvarteret: 0xb9ad9a, skejtparken: 0xc4c2ba, kryssaren: 0xd8cdbd };
 import { Replay } from '../race/replay.js';
 import { StuntSession } from '../stunt/stunt.js';
 import { renderSplit, direct, makeSkyTexture, applyLighting } from './gameViews.js';
@@ -118,7 +120,7 @@ export class Game {
     }
     if (cfg.opponents != null) this.opponents = cfg.opponents;
     if (cfg.difficulty) this.difficulty = cfg.difficulty;
-    this.opts = { mode: cfg.mode || 'race', laps: cfg.laps ?? null, weapons: cfg.weapons ?? true, players: cfg.players || 1, carId2: cfg.carId2 || null };
+    this.opts = { mode: cfg.mode || 'race', laps: cfg.laps ?? null, weapons: cfg.weapons ?? true, players: cfg.players || 1, carId2: cfg.carId2 || null, rival: cfg.rival || null, locked: !!cfg.locked };
     this.paused = false;
     this._buildWorld(cfg.carId || this.carId);
   }
@@ -193,7 +195,8 @@ export class Game {
     const solo = mode === 'timetrial' || mode === 'showroom' || stunt;
     // Två spelare (delad skärm): plats för spelare 2 i fältet
     const two = mode === 'race' && this.opts.players === 2;
-    const field = solo ? [] : buildField(CARS[carId], mode === 'demo' ? 7 : two ? Math.min(6, this.opponents) : this.opponents, this.difficulty);
+    // Rivalduell: en enda motståndare. Annars det vanliga fältet.
+    const field = solo ? [] : this.opts.rival ? [rivalEntry(this.opts.rival, CARS[carId])] : buildField(CARS[carId], mode === 'demo' ? 7 : two ? Math.min(6, this.opponents) : this.opponents, this.difficulty);
     field.forEach((f, slot) => {
       const g = this.track.gridSlot(slot);
       const v = new Vehicle(this.world, this.RAPIER, f.def, { ...g, y: g.y + 0.2 });
@@ -317,7 +320,8 @@ export class Game {
         car.ai.catchup = rubber && !car.racer.finished ? Math.max(-1, Math.min(1, (lead - car.racer.progress) / 40)) : 0;
         v.update(STEP, go ? car.ai.controls(v, STEP, this.vehicles) : { throttle: 0, steer: 0 });
       } else {
-        const cc = car === this.p2 ? c2 : c;
+        // Spelarnas körhjälp: bromshjälp och rakstyrning (inte i stuntarenan, där finns ingen bana att följa)
+        const cc = this.stunt ? (car === this.p2 ? c2 : c) : helpControls(car === this.p2 ? c2 : c, v, car.racer, this.track, this.assist);
         v.update(STEP, go && !playerDone && !car.racer.finished && !car.rewinding ? cc : { throttle: 0, steer: cc.steer });
       }
     }

@@ -13,7 +13,7 @@ export const TRIES = 3;
 
 export const CUPS = [
   { id: 'brons', name: 'Bronscupen', difficulty: 'easy', laps: 3, races: ['lagret', 'kvarteret', 'kitchen', 'tradgarden'] },
-  { id: 'silver', name: 'Silvercupen', difficulty: 'normal', laps: 3, races: ['spokstaden', 'supermarket', 'kryssaren', 'leksaksaffaren'] },
+  { id: 'silver', name: 'Silvercupen', difficulty: 'normal', laps: 3, races: ['spokstaden', 'supermarket', 'skejtparken', 'kryssaren', 'leksaksaffaren'] },
   { id: 'guld', name: 'Guldcupen', difficulty: 'hard', laps: 4, races: ['museet', 'kvarteret', 'kryssaren', 'spokstaden', 'tradgarden'] },
   { id: 'platina', name: 'Platinacupen', difficulty: 'hard', laps: 5, races: ['supermarket', 'museet', 'leksaksaffaren', 'lagret', 'kryssaren', 'spokstaden'] },
 ];

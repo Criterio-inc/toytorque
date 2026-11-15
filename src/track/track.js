@@ -14,6 +14,9 @@ import { G, groups, GRAVITY } from '../core/physics.js';
 //                                  mjukt interpolerad, sluten runt varvet
 //   gaps        [[a0, a1], ...]    andelar där vägen saknas (hopp)
 //   openings    [[a0, a1], ...]    andelar utan kantvallar
+//   freeRoam    true               öppen bana: inga kantvallar, bilarna får lämna vägen
+//   closed      [[a0, a1], ...]    sträckor på en öppen bana som ändå har kantvallar (doserade kurvor)
+//   checkpointHalf  meter          halva bredden på kontrollpunkterna (öppna banor har breda)
 //   bank        [{at, deg, len?, fade?}]  doserad kurva: hela kurvan som
 //                                  punkten ligger i lutas deg grader (ytterkanten
 //                                  upp; negativt = mot kurvan), tonas in/ut
@@ -59,7 +62,7 @@ export function buildTrackData(spec) {
   };
   const keyOf = (e) => (Array.isArray(e) ? [fracAt(e[0]), e[1], !!e[2]] : [fracAt(e.at), e.y, !!e.linear]);
   const rangeOf = (g) => (Array.isArray(g) && typeof g[0] === 'number' ? g : [fracAt(g.from), fracAt(g.to)]);
-  spec = { ...spec, gaps: (spec.gaps || []).map(rangeOf), openings: (spec.openings || []).map(rangeOf) };
+  spec = { ...spec, gaps: (spec.gaps || []).map(rangeOf), openings: (spec.openings || []).map(rangeOf), closed: (spec.closed || []).map(rangeOf) };
 
   // Höjdprofil
   const elev = spec.elevation && spec.elevation.length ? spec.elevation.map(keyOf).sort((a, b) => a[0] - b[0]) : [[0, 0]];
@@ -99,7 +102,7 @@ export function buildTrackData(spec) {
     for (let i = 0; i < N; i++) pts[i].y = Math.max(pts[i].y, lift[i]);
   }
   const isGap = pts.map((_, i) => inRanges(frac(i), spec.gaps));
-  const isOpen = pts.map((_, i) => inRanges(frac(i), spec.openings));
+  const isOpen = pts.map((_, i) => (!!spec.freeRoam && !inRanges(frac(i), spec.closed)) || inRanges(frac(i), spec.openings));
 
   // Genvägar: avfart och påfart på huvudbanan (öppningar i vallarna där)
   const shortcutSpecs = (spec.shortcuts || []).map((sc) => {
@@ -131,7 +134,7 @@ export function buildTrackData(spec) {
     for (let k = 0; k < N && nearGap(idx); k++) idx = (idx + 1) % N;
     checkpoints.push({
       index: idx, x: pts[idx].x, y: pts[idx].y, z: pts[idx].z,
-      tangent: tangents[idx], normal: normals[idx], halfWidth: roadHalf + 0.6,
+      tangent: tangents[idx], normal: normals[idx], halfWidth: spec.checkpointHalf ?? roadHalf + 0.6,
     });
   }
 
@@ -150,7 +153,7 @@ export function buildTrackData(spec) {
   checkpoints.sort((a, b) => a.index - b.index);
 
   const data = {
-    pts, tangents, normals, dist, length, N, roadHalf, spacing, checkpoints, isGap, isOpen, bank, tanB,
+    pts, tangents, normals, dist, length, N, roadHalf, spacing, checkpoints, isGap, isOpen, bank, tanB, freeRoam: !!spec.freeRoam,
     startHeading: Math.atan2(tangents[0].x, tangents[0].z),
     barrier: { height: spec.barrierHeight ?? 0.22, thick: spec.barrierThick ?? 0.12 },
 

@@ -16,6 +16,7 @@ import { tradgarden } from '../src/level/tradgarden.js';
 import { leksaksaffaren } from '../src/level/leksaksaffaren.js';
 import { museet } from '../src/level/museet.js';
 import { kvarteret } from '../src/level/kvarteret.js';
+import { skejtparken } from '../src/level/skejtparken.js';
 import { supermarket } from '../src/level/supermarket.js';
 import { Race } from '../src/race/race.js';
 import { PathFollower, AiDriver } from '../src/ai/pathFollower.js';
@@ -81,7 +82,7 @@ function run(world, car, seconds, ctrl) {
   return { minUp };
 }
 
-const ALL_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket];
+const ALL_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, skejtparken];
 // Kurs (gir) ur rotationen och glidvinkel ur farten, i markplanet
 function headingOf(car) {
   const r = car.body.rotation();
@@ -379,7 +380,7 @@ if (!only || only === 'stabilitet') {
 }
 
 // 9. Fullt fält: 8 datorförare på varje nivå ska alla gå i mål utan kaos
-const FIELD_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, ...EDITOR_LEVELS];
+const FIELD_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, skejtparken, ...EDITOR_LEVELS];
 for (const level of FIELD_LEVELS) {
   if (only && only !== 'falt') break; // kör: npm test falt
   const world = createWorld(RAPIER);
@@ -922,6 +923,71 @@ if (!only || only === 'karta') {
     if (bad) outside.push(`${level.name} ${bad}`);
   }
   check('Minikarta', okRect && outside.length === 0, `rektangel ${okRect ? 'rätt' : 'FEL'}, banor utanför kartan: ${outside.join(', ') || 'inga'} (${FIELD_LEVELS.length} banor)`);
+}
+
+// 11g. Körhjälp: en ovan tangentförare (gasen i botten, styr allt eller inget, reagerar sent)
+// ska klara två varv utan att sättas tillbaka med Mycket hjälp, och skrapa klart mindre
+// i väggarna än utan broms- och styrhjälpen (kör: npm test korhjalp)
+if (!only || only === 'korhjalp') {
+  const { helpControls } = await import('../src/vehicle/driveHelp.js');
+  const drive = (level, help) => {
+    const world = createWorld(RAPIER);
+    const T = buildLevel({ world, RAPIER, level }).track;
+    const race = new Race(T, { laps: 2, countdown: 0.01 });
+    const g = T.gridSlot(0);
+    const car = new Vehicle(world, RAPIER, CARS.rasket, { ...g, y: g.y + 0.2 });
+    car.helper = 1;
+    const racer = race.addRacer(car, { isPlayer: true });
+    const delay = Math.round(0.15 / STEP), hist = [];
+    let wall = 0, resets = 0, t = 0;
+    for (; t < 200 && race.state !== 'finished'; t += STEP) {
+      const i = Math.max(0, racer.trackIndex), tp = T.poseAt((i + Math.round(4 / T.spacing)) % T.N, 0), p = car.position, q = car.currQuat;
+      const fx = 2 * (q.x * q.z + q.w * q.y), fz = 1 - 2 * (q.x * q.x + q.y * q.y);
+      const dx = tp.x - p.x, dz = tp.z - p.z;
+      const ang = Math.atan2(dx * fz - dz * fx, dx * fx + dz * fz);
+      hist.push(Math.abs(ang) > 0.1 ? Math.sign(ang) : 0);
+      const c = race.canDrive ? helpControls({ throttle: 1, steer: hist.length > delay ? hist[hist.length - 1 - delay] : 0 }, car, racer, T, help) : { throttle: 0, steer: 0 };
+      car.update(STEP, c); world.step(); car.snapshot(); race.update(STEP);
+      if (car.wallTime > 0.25) wall += STEP;
+      if (racer.stuckTime > 4 || car.position.y < -2 || racer.fell) { resets++; const rp = race.respawnPose(racer); car.place({ ...rp, y: rp.y + 0.2 }); race.resyncRacer(racer); racer.fell = false; }
+    }
+    return { done: race.state === 'finished', time: race.time, wall, resets };
+  };
+  // Regler: ingen hjälp ändrar ingenting, för hög fart inför en kurva bromsar
+  const same = { throttle: 1, steer: 0.3 };
+  const off = helpControls(same, { grounded: 4 }, { trackIndex: 0 }, { lineSpeed: [1] }, 0) === same;
+  for (const level of [kitchen, kvarteret]) {
+    const a = drive(level, 0), b = drive(level, 1);
+    check(`Körhjälp ${level.name}`, off && b.done && b.resets === 0 && b.wall < 3 && b.wall < a.wall * 0.5 && b.time < a.time,
+      `utan broms- och styrhjälp ${a.time.toFixed(0)} s, väggkontakt ${a.wall.toFixed(1)} s, återsatt ${a.resets}; med Mycket ${b.time.toFixed(0)} s, väggkontakt ${b.wall.toFixed(1)} s, återsatt ${b.resets}`);
+  }
+}
+
+// 11f. Rivaler: en i taget, seger öppnar nästa, tre rivaler ger en bil (kör: npm test rivaler)
+if (!only || only === 'rivaler') {
+  const store = {};
+  globalThis.localStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); } };
+  const R = await import('../src/race/rivals.js');
+  const ids = [...ALL_LEVELS.map((l) => l.id)];
+  const dataOk = R.RIVALS.length === 8 && new Set(R.RIVALS.map((r) => r.id)).size === 8 && new Set(R.RIVALS.map((r) => r.name)).size === 8
+    && R.RIVALS.every((r) => ids.includes(r.level) && (!r.evening || ALL_LEVELS.find((l) => l.id === r.level).evening) && (!r.reward || CARS[r.reward]) && r.line.length > 10)
+    && R.RIVALS.every((r, i) => i === 0 || r.skill >= R.RIVALS[i - 1].skill);
+  const open0 = R.RIVALS.map((_, i) => R.isRivalOpen(i)).join('');
+  const lost = R.recordDuel('kork', 2);
+  const win = R.recordDuel('kork', 1), again = R.recordDuel('kork', 1);
+  const open1 = R.RIVALS.map((_, i) => R.isRivalOpen(i)).join('');
+  R.recordDuel('fjader', 1);
+  const rut = R.recordDuel('rut', 1);
+  store['revolt.rivals'] = '{"beaten":["kork",7,"finns-inte","kork"]}';
+  const bad = R.loadRivals();
+  store['revolt.rivals'] = JSON.stringify({ beaten: R.RIVALS.map((r) => r.id).slice(0, 7) });
+  const last = R.recordDuel('mastaren', 1);
+  const e = R.rivalEntry(R.RIVALS[3], CARS.rasket);
+  check('Rivaler', dataOk && open0 === 'truefalsefalsefalsefalsefalsefalsefalse' && !lost.won && win.won && win.first && win.next.id === 'fjader' && !again.first
+    && open1.startsWith('truetruefalse') && rut.cars.join() === 'giraffen' && bad.beaten.join() === 'kork' && last.all && !last.next
+    && e.name === 'Bromsklossen' && e.def.cls === 'Rookie' && e.def.id !== 'rasket' && e.def.colors.body === R.RIVALS[3].colors.body,
+    `8 rivaler på ${new Set(R.RIVALS.map((r) => r.level)).size} banor, första segern öppnar ${win.next.name}, ${rut.cars} vid tredje, trasig sparfil ${bad.beaten.join() === 'kork' ? 'rättad' : 'FEL'}, sista ger ${last.cars.join() || 'ingen ny bil'}`);
+  delete globalThis.localStorage;
 }
 
 // 12. Upplåsning: startbilar, cuper, snabbspår, tidsutmaning och trasig sparfil

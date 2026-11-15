@@ -32,3 +32,9 @@ export function canPyramid(at, { lateral = 0, along = 0, base = 4 } = {}) {
 export function coneRow(at, { lateral = 0, along = 0, count = 5, gap = 0.7, drift = 0 } = {}) {
   return Array.from({ length: count }, (_, k) => ({ kind: 'cone', at, along: along + k * gap, lateral: lateral + k * drift, color: 0xff6a12 }));
 }
+
+// Bollar som ligger kvar i gräset efter en träning
+export function ballGroup(at, { lateral = 0, along = 0, count = 3 } = {}) {
+  const pal = [0xf4f2ec, 0xffc533, 0xf4f2ec, 0xe03a2a];
+  return Array.from({ length: count }, (_, k) => ({ kind: 'ball', at, along: along + k * 0.9, lateral: lateral + (k % 2) * 0.7, color: pal[k % pal.length] }));
+}

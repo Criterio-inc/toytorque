@@ -12,7 +12,8 @@ import { CAMERA_RAY_GROUPS } from '../core/physics.js';
 // ---------------------------------------------------------------------------
 
 const MODES = [
-  { name: 'Följ', back: 0.95, backFast: 1.55, up: 0.3, upFast: 0.42, look: 0.1, lead: 0.28, swing: 2.4 },
+  // Lite högre än förut: man ser mer av vägen framför bilen och hoppen längre fram
+  { name: 'Följ', back: 1.0, backFast: 1.6, up: 0.44, upFast: 0.6, look: 0.07, lead: 0.28, swing: 2.4 },
   { name: 'Nära', back: 0.7, backFast: 1.0, up: 0.22, upFast: 0.28, look: 0.08, lead: 0.2, swing: 3.2 },
   { name: 'Långt', back: 1.8, backFast: 2.6, up: 0.6, upFast: 0.8, look: 0.15, lead: 0.35, swing: 1.8 },
   { name: 'Huv', back: -0.12, up: 0.11, look: 0.1, ahead: 3, rigid: true },

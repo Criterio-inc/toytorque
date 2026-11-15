@@ -1,5 +1,7 @@
 import { CARS, CAR_ORDER, carStats } from '../vehicle/carDefs.js';
 import { CUPS, Championship, loadProgress, QUALIFY } from '../race/championship.js';
+import { RIVALS, loadRivals, isRivalOpen, recordDuel } from '../race/rivals.js';
+import { GarageWall } from './garageWall.js';
 import { formatTime, ordinal } from './hud.js';
 import { isCarUnlocked, isCupOpen, unlockHint, applyTimeTrial, progressSummary, setDevAll, resetProgress, CHALLENGE, fmt as fmtChallenge } from '../race/progress.js';
 import { loadStuntProgress } from '../stunt/stunt.js';
@@ -20,6 +22,7 @@ const BLURB = {
   tradgarden: 'Trädgården. Palmhuset med dammen, stenbron och hoppet.',
   leksaksaffaren: 'Leksaksaffären. Nattöppet bland hyllorna: regnbågsrampen, borgtunneln vid roboten och hoppet.',
   museet: 'Museet. Nattligt museum: dinosaurien, Egyptensalen, hoppet över det svarta hålet och rulltrappan upp till galleriet.',
+  skejtparken: 'Skejtparken. Öppen bana i parken utan kantvallar: gena över gräset om du vågar. Bordshopp, S-kurva, stora hoppet, vågen och skålen.',
   kvarteret: 'Kvarteret. Villagatan i solsken, skaterampen, rondellen och genvägen genom garaget.',
   supermarket: 'Supermarketen. Hyllgångar, kampanjhopp, lastkajen och det hala frysrummet.',
 };
@@ -90,6 +93,8 @@ export class Menu {
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.autoPause(); });
     window.addEventListener('blur', () => this.autoPause());
     // Sparandet misslyckades (lagringen full eller avstängd)
+    // Bilhyllans bilder tas en stund efter start, när inget annat händer, så att hyllan öppnas direkt
+    setTimeout(() => (window.requestIdleCallback || setTimeout)(() => (this.wall ||= new GarageWall(game)).prepare()), 1500);
     window.addEventListener('revolt:savefailed', () => this.game.hud.message('Kunde inte spara', { warn: true, time: 2.5 }));
   }
 
@@ -125,6 +130,8 @@ export class Menu {
     this.screen = null;
     this.flow = null;
     this.cup = null;
+    this.rival = null;
+    this.game.evening = !!this.settings.evening; // en rivalduell kan ha bytt till kväll
     this.game.setup({ mode: 'demo', level: this._randomLevel() });
     this.game.audio?.playMusic?.('menu');
     this.go(this.mainScreen(), { replace: true });
@@ -132,6 +139,7 @@ export class Menu {
 
   show() {
     this.open = true;
+    this.game.post.lite = true; // billigare bakgrund medan menyn är öppen
     document.body.classList.add('menu-open');
     this.game.paused = this.game.mode !== 'demo' && this.game.mode !== 'showroom';
     this.el.style.display = 'flex';
@@ -140,6 +148,7 @@ export class Menu {
 
   hide() {
     this.open = false;
+    this.game.post.lite = false;
     this.swallowUntil = performance.now() + 150; // samma knapptryck ska inte nå spelet
     document.body.classList.remove('menu-open');
     this.el.style.display = 'none';
@@ -149,6 +158,8 @@ export class Menu {
   ui(name) { this.game.events.emit('ui', { name }); }
 
   _key(e) {
+    // Garagets vägg ligger ovanpå menyn och tar tangenterna själv
+    if (this.wall?.isOpen) { if (this.wall.key(e.code)) { e.preventDefault(); e.stopImmediatePropagation(); } return; }
     if (!this.open) return;
     const items = this.screen.items.filter((i) => !i.disabled);
     const cur = items[this.index];
@@ -191,7 +202,7 @@ export class Menu {
       if (this.resultShown && this._finishAt && performance.now() - this._finishAt > 2600) {
         this._finishAt = 0;
         this.stack = [];
-        this.go(this.flow === 'cup' ? this.cupResultScreen() : this.resultScreen(), { replace: true });
+        this.go(this.flow === 'cup' ? this.cupResultScreen() : this.flow === 'rival' ? this.rivalResultScreen() : this.resultScreen(), { replace: true });
       }
     }
   }
@@ -203,10 +214,13 @@ export class Menu {
       items: [
         { label: 'Enkelt lopp', select: () => { this.flow = 'race'; this.go(this.carScreen(() => this.go(this.trackScreen(() => this.startRace())))); } },
         { label: 'Mästerskap', select: () => { this.flow = 'cup'; this.go(this.cupScreen()); } },
+        { get label() { return `Rivaler <small>${loadRivals().beaten.length}/${RIVALS.length}</small>`; }, select: () => { this.flow = 'rival'; this.go(this.rivalScreen()); } },
         { label: 'Två spelare', select: () => { this.flow = 'race2'; this.go(this.carScreen(() => this.go(this.carScreen(() => this.go(this.trackScreen(() => this.startRace(2))), 2)))); } },
         { label: 'Tidskörning', select: () => { this.flow = 'timetrial'; this.go(this.carScreen(() => this.go(this.trackScreen(() => this.startTimeTrial())))); } },
         // --- Stuntläge: fri körning i Stuntarenan ---
         { get label() { const p = loadStuntProgress(); return `Stuntarena <small>★ ${p.stars.length}/20${p.allStars ? ' · klar' : ''}</small>`; }, select: () => { this.flow = 'stunt'; this.go(this.carScreen(() => this.startStunt())); } },
+        // Garaget: en vägg i en leksaksaffär med alla bilar i sina kartonger (ui/garageWall.js)
+        { get label() { return `Garage <small>${progressSummary().carsUnlocked}/${CAR_ORDER.length}</small>`; }, select: () => { (this.wall ||= new GarageWall(this.game)).open(this.sel, () => this.render()); } },
         { label: 'Banbyggaren', select: () => this.openEditor() },
         { label: 'Inställningar', select: () => this.go(this.optionsScreen()) },
       ],
@@ -216,15 +230,33 @@ export class Menu {
     };
   }
 
+  // Bilvalet inför ett lopp görs vid bilhyllan (ui/garageWall.js). Skärmen här under är
+  // tom: den finns för att Esc från nästa skärm ska leda tillbaka till hyllan.
   carScreen(next, player = 1) {
+    const scr = {
+      title: 'Välj bil', items: [], hint: '',
+      enter: () => {
+        this.render();
+        (this.wall ||= new GarageWall(this.game)).open(this.sel, () => { if (this.screen === scr) (scr.onBack ? scr.onBack() : this.back()); }, {
+          key: player === 2 ? 'carId2' : 'carId',
+          title: player === 2 ? 'SPELARE 2: VÄLJ BIL' : this.flow === 'race2' ? 'SPELARE 1: VÄLJ BIL' : 'VÄLJ BIL',
+          onPick: () => next(),
+        });
+      },
+    };
+    return scr;
+  }
+
+  // Det gamla bilvalet som lista med bilen i 3D bakom (används inte längre i menyflödet)
+  carListScreen(next, player = 1) {
     const key = player === 2 ? 'carId2' : 'carId';
     if (!this.sel[key]) this.sel[key] = this.sel.carId;
     const self = this;
     const list = () => CAR_ORDER.filter((id) => CARS[id].cls === this.sel.cls);
     const classes = CLASSES.filter((c) => CAR_ORDER.some((id) => CARS[id].cls === c));
-    const preview = () => this.game.setup({ mode: 'showroom', carId: this.sel[key], level: this.sel.level });
+    const preview = () => this._soon(() => scr, () => this.game.setup({ mode: 'showroom', carId: this.sel[key], level: this.sel.level, locked: !isCarUnlocked(this.sel[key]) }));
     const scr = {
-      title: player === 2 ? 'Spelare 2: välj bil' : this.flow === 'race2' ? 'Spelare 1: välj bil' : 'Välj bil',
+      title: this.flow === 'garage' ? 'Garage' : player === 2 ? 'Spelare 2: välj bil' : this.flow === 'race2' ? 'Spelare 1: välj bil' : 'Välj bil',
       get sub() { return `◀ ${self.sel.cls} ▶`; },
       get items() {
         // Låsta bilar går att titta på men inte välja
@@ -246,7 +278,7 @@ export class Menu {
       onMove: (item) => { this.sel[key] = item.id; this.render(); preview(); },
       left: () => switchClass(-1),
       right: () => switchClass(1),
-      get hint() { return `↑↓ bil · ◀▶ klass · Enter välj · Esc tillbaka · ${progressSummary().carsUnlocked}/${CAR_ORDER.length} bilar upplåsta`; },
+      get hint() { return `↑↓ bil · ◀▶ klass · ${self.flow === 'garage' ? '' : 'Enter välj · '}Esc tillbaka · ${progressSummary().carsUnlocked}/${CAR_ORDER.length} bilar upplåsta`; },
     };
     const switchClass = (d) => {
       const i = classes.indexOf(this.sel.cls);
@@ -259,10 +291,24 @@ export class Menu {
     return scr;
   }
 
+  // Förhandsvisningen bakom menyn bygger om hela banan, vilket tar en stund. Den
+  // väntar därför tills markeringen stått still en kort stund, så att det går
+  // fort att bläddra. Har spelaren hunnit lämna skärmen görs ingenting.
+  _soon(screenOf, fn, wait = 220) {
+    clearTimeout(this._pv);
+    this._pv = setTimeout(() => { if (this.screen === screenOf()) fn(); }, wait);
+  }
+
   trackScreen(next) {
-    const preview = () => this.game.setup({ mode: 'demo', level: this.sel.level, carId: this.sel.carId });
+    // Att bygga en bana tar upp till en halv sekund och fryser allt under tiden. Banan bakom
+    // byts därför först när markeringen stått still en god stund, och inte om den redan visas.
+    const preview = () => this._soon(() => scr, () => {
+      const g = this.game;
+      if (g.mode === 'demo' && g.levelDef.id === this.sel.level && !!g.level?.level?.night === !!(g.evening && g.levelDef.evening)) return;
+      g.setup({ mode: 'demo', level: this.sel.level, carId: this.sel.carId });
+    }, 650);
     const dusk = () => !!this.game.evening;
-    return {
+    const scr = {
       title: 'Välj bana',
       // Banor med kvällsvariant växlas med ◀▶; valet sparas och gäller alla lägen
       items: this.levels.map((l) => {
@@ -279,6 +325,68 @@ export class Menu {
       onMove: (item) => { this.sel.level = item.id; this.render(); preview(); },
       hint: '↑↓ bana · ◀▶ dag eller kväll · Enter kör · Esc tillbaka',
     };
+    return scr;
+  }
+
+  // --- Rivaler: dueller en mot en, en rival i taget (race/rivals.js) ---
+  rivalScreen() {
+    const st = loadRivals();
+    const cur = () => RIVALS[this.index] || RIVALS[0];
+    return {
+      title: 'Rivaler',
+      items: RIVALS.map((r, i) => {
+        const open = isRivalOpen(i, st);
+        return {
+          label: `${open ? r.name : '???'}${st.beaten.includes(r.id) ? ' ★' : ''}${open ? '' : ' (låst)'}`,
+          disabled: !open,
+          select: () => { this.rival = r; this.go(this.carScreen(() => this.startDuel())); },
+        };
+      }),
+      side: () => {
+        const r = cur(), open = isRivalOpen(RIVALS.indexOf(r), st);
+        return `<div class="card"><h3>${open ? r.name : 'Okänd rival'}</h3>
+          <p>${open ? `”${r.line}”` : 'Slå rivalen före för att få veta vem det är.'}</p>
+          <p class="meta">${open ? `${this._levelName(r.level)}${r.evening ? ' på kvällen' : ''} · ${r.laps} varv · en mot en` : ''}</p>
+          ${open && r.reward ? `<p class="meta">Vinsten: ${CARS[r.reward].name}</p>` : ''}
+          <p class="meta">Rivalen kör en bil ur samma klass som din. Kom först i mål för att gå vidare.</p></div>`;
+      },
+      enter: () => { this.index = Math.min(RIVALS.length - 1, st.beaten.length); this.render(); this._demoBehind(); },
+      onMove: () => this.render(),
+      hint: '↑↓ välj rival · Enter · Esc tillbaka',
+    };
+  }
+
+  startDuel() {
+    const r = this.rival;
+    this.stack = [];
+    this.hide();
+    this.game.evening = !!r.evening;
+    this.game.raceInfo = { mode: 'Rivalduell', stage: r.name };
+    this.game.setup({ mode: 'race', level: r.level, carId: this.sel.carId, opponents: 1, laps: r.laps, weapons: true, rival: r });
+    this.game.audio?.playMusic?.(r.level);
+    this._swallow();
+  }
+
+  // Får bara anropas en gång per målgång: segern sparas här
+  rivalResultScreen() {
+    const r = this.rival, res = recordDuel(r.id, this.game.racer.position);
+    const items = [];
+    if (res.next) items.push({ label: `Nästa rival: ${res.next.name}`, select: () => { this.rival = res.next; this.startDuel(); } });
+    items.push({ label: res.won ? 'Kör duellen igen' : 'Försök igen', select: () => this.startDuel() });
+    items.push(...this._replayItem(() => scr));
+    items.push({ label: 'Till startmenyn', select: () => this.home() });
+    const scr = {
+      title: res.all && res.first ? 'Alla rivaler slagna!' : res.won ? `Du slog ${r.name}!` : `${r.name} vann`,
+      sub: `${this.game.levelDef.name} · ${CARS[this.game.carId].name}`,
+      items,
+      side: () => `<div class="card"><h3>Duell</h3>
+        <p>${res.won ? (res.next ? `Nästa rival väntar: <b>${res.next.name}</b>.` : 'Det finns ingen kvar att slå. Du är snabbast.') : `”${r.line}”`}</p>
+        <p>Total tid: <b>${formatTime(this.game.racer.finishTime) ?? '--'}</b></p>
+        ${resultsTable(this.game.race.racers)}</div>`,
+      onBack: () => this.home(),
+      hint: 'Enter välj',
+    };
+    return this._withUnlocks(res.cars, scr);
   }
 
   cupScreen() {
@@ -525,7 +633,7 @@ export class Menu {
 
   _restart() {
     const g = this.game;
-    g.setup({ mode: g.mode, level: g.levelDef.id, carId: g.carId, laps: g.opts.laps, weapons: g.opts.weapons, players: g.opts.players, carId2: g.opts.carId2 });
+    g.setup({ mode: g.mode, level: g.levelDef.id, carId: g.carId, laps: g.opts.laps, weapons: g.opts.weapons, players: g.opts.players, carId2: g.opts.carId2, rival: g.opts.rival });
     this._swallow();
   }
 
@@ -584,14 +692,32 @@ export class Menu {
       const arrowsR = it.right ? '<span class="arr">▶</span>' : '';
       return `<li class="${on ? 'on' : ''}${it.disabled ? ' off' : ''}${it.locked ? ' locked' : ''}" data-i="${it.disabled ? -1 : k}">${on ? arrows : ''}${it.label}${on ? arrowsR : ''}</li>`;
     }).join('');
-    this.el.innerHTML = `
+    const side = s.side ? s.side() : null;
+    const q = (sel) => this.el.querySelector(sel);
+    // Samma skärm som förra gången: byt bara det som ändrats. Att bygga om allt för varje
+    // knapptryck ritar om loggan med sin skugga varje gång, och det märks som tröghet.
+    const same = this._drawn === s && q('ul') && !!q('.sub') === !!s.sub && !!q('.side') === (side != null);
+    const set = (el, html) => { if (el && el._h !== html) { el.innerHTML = html; el._h = html; return true; } return false; };
+    let bind = true;
+    if (same) {
+      if (s.title !== 'LOGO') set(q('.logo'), s.title);
+      set(q('.sub'), s.sub);
+      bind = set(q('ul'), rows);
+      set(q('.side'), side);
+      set(q('.hintbar'), s.hint || '');
+    } else {
+      this.el.innerHTML = `
       <div class="panel">
         <div class="logo">${s.title === 'LOGO' ? LOGO_SVG : s.title}</div>
         ${s.sub ? `<div class="sub">${s.sub}</div>` : ''}
         <ul>${rows}</ul>
       </div>
-      ${s.side ? `<div class="side">${s.side()}</div>` : ''}
+      ${side != null ? `<div class="side">${side}</div>` : ''}
       <div class="hintbar">${s.hint || ''}</div>`;
+      this._drawn = s;
+      for (const [sel, html] of [['.logo', s.title], ['.sub', s.sub], ['ul', rows], ['.side', side], ['.hintbar', s.hint || '']]) { const el = q(sel); if (el) el._h = html; }
+    }
+    if (!bind) return;
     this.el.querySelectorAll('li[data-i]').forEach((li) => {
       const i = +li.dataset.i;
       if (i < 0) return;
