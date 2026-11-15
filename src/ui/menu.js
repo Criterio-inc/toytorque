@@ -21,7 +21,7 @@ const BLURB = {
   tradgarden: 'Trädgården. Palmhuset med dammen, stenbron och hoppet.',
   leksaksaffaren: 'Leksaksaffären. Nattöppet bland hyllorna: regnbågsrampen, borgtunneln vid roboten och hoppet.',
   museet: 'Museet. Nattligt museum: dinosaurien, Egyptensalen, hoppet över det svarta hålet och rulltrappan upp till galleriet.',
-  skejtparken: 'Skejtparken. Bred betongbana i parken: bordshopp på startrakan, S-kurvan, stora hoppet, puckeln och den doserade kurvan hem.',
+  skejtparken: 'Skejtparken. Bred betongbana i parken: bordshopp på startrakan, S-kurvan, stora hoppet, vågen och puckeln.',
   kvarteret: 'Kvarteret. Villagatan i solsken, skaterampen, rondellen och genvägen genom garaget.',
   supermarket: 'Supermarketen. Hyllgångar, kampanjhopp, lastkajen och det hala frysrummet.',
 };

@@ -14,23 +14,24 @@ import { storeSafely, unlockCar } from './progress.js';
 const KEY = 'revolt.rivals';
 
 // evening: duellen körs i skymning (banan måste ha en kvällsvariant).
-// skill och topMul stiger genom kampanjen. reward: bil som låses upp vid seger.
+// skill och topMul stiger genom kampanjen. Den första rivalen är klart långsammare än
+// cupernas lättaste förare, den sista ungefär som en förare på Normal. reward: bil som låses upp vid seger.
 export const RIVALS = [
-  { id: 'kork', name: 'Kapten Kork', level: 'lagret', laps: 2, skill: 0.82, topMul: 0.96, colors: { body: 0xb5651d, trim: 0x2b2b2b, accent: 0xf5e6c8 },
+  { id: 'kork', name: 'Kapten Kork', level: 'lagret', laps: 2, skill: 0.68, topMul: 0.91, colors: { body: 0xb5651d, trim: 0x2b2b2b, accent: 0xf5e6c8 },
     line: 'Jag kan varenda pall i det här lagret. Du hinner inte ens se mig.' },
-  { id: 'fjader', name: 'Fröken Fjäder', level: 'kitchen', laps: 2, skill: 0.85, topMul: 0.97, colors: { body: 0xf2f2f2, trim: 0xe84a8a, accent: 0xe84a8a },
+  { id: 'fjader', name: 'Fröken Fjäder', level: 'kitchen', laps: 2, skill: 0.71, topMul: 0.92, colors: { body: 0xf2f2f2, trim: 0xe84a8a, accent: 0xe84a8a },
     line: 'Lätt på foten, lätt i kurvorna. Försök hänga med över spisen.' },
-  { id: 'rut', name: 'Rostiga Rut', level: 'tradgarden', laps: 3, skill: 0.88, topMul: 0.98, colors: { body: 0x8a4b2a, trim: 0x3f7d3a, accent: 0xd9c7a0 }, reward: 'giraffen',
+  { id: 'rut', name: 'Rostiga Rut', level: 'tradgarden', laps: 3, skill: 0.74, topMul: 0.93, colors: { body: 0x8a4b2a, trim: 0x3f7d3a, accent: 0xd9c7a0 }, reward: 'giraffen',
     line: 'Rost är bara erfarenhet som syns. Vi ses på stenbron.' },
-  { id: 'kloss', name: 'Bromsklossen', level: 'kvarteret', laps: 3, skill: 0.9, topMul: 0.99, evening: true, colors: { body: 0x2f3b52, trim: 0xffc533, accent: 0xffc533 },
+  { id: 'kloss', name: 'Bromsklossen', level: 'kvarteret', laps: 3, skill: 0.77, topMul: 0.94, evening: true, colors: { body: 0x2f3b52, trim: 0xffc533, accent: 0xffc533 },
     line: 'Jag bromsar sent och ber aldrig om ursäkt. Kvällsrunda i kvarteret?' },
-  { id: 'tage', name: 'Turbo-Tage', level: 'spokstaden', laps: 3, skill: 0.92, topMul: 1.0, colors: { body: 0xd42a2a, trim: 0x111111, accent: 0xffffff },
+  { id: 'tage', name: 'Turbo-Tage', level: 'spokstaden', laps: 3, skill: 0.8, topMul: 0.95, colors: { body: 0xd42a2a, trim: 0x111111, accent: 0xffffff },
     line: 'Jag sparar aldrig på turbon. Dammet du ser är mitt.' },
-  { id: 'dimman', name: 'Dimman', level: 'kryssaren', laps: 3, skill: 0.95, topMul: 1.01, evening: true, colors: { body: 0x7f8c99, trim: 0x1c2733, accent: 0x9fe8ff }, reward: 'pilen',
+  { id: 'dimman', name: 'Dimman', level: 'kryssaren', laps: 3, skill: 0.83, topMul: 0.96, evening: true, colors: { body: 0x7f8c99, trim: 0x1c2733, accent: 0x9fe8ff }, reward: 'pilen',
     line: 'Ingen ser mig komma. I skymningen på däck ser du mig inte gå heller.' },
-  { id: 'pedal', name: 'Professor Pedal', level: 'supermarket', laps: 3, skill: 0.97, topMul: 1.02, colors: { body: 0x2a7d6f, trim: 0xf0e8d0, accent: 0xff7a3c },
+  { id: 'pedal', name: 'Professor Pedal', level: 'supermarket', laps: 3, skill: 0.86, topMul: 0.97, colors: { body: 0x2a7d6f, trim: 0xf0e8d0, accent: 0xff7a3c },
     line: 'Idealspåret är en fråga om geometri. Jag har räknat på det.' },
-  { id: 'mastaren', name: 'Mästaren', level: 'skejtparken', laps: 4, skill: 1.0, topMul: 1.03, evening: true, colors: { body: 0x111318, trim: 0xd4af37, accent: 0xd4af37 }, reward: 'kungen',
+  { id: 'mastaren', name: 'Mästaren', level: 'skejtparken', laps: 4, skill: 0.9, topMul: 0.98, evening: true, colors: { body: 0x111318, trim: 0xd4af37, accent: 0xd4af37 }, reward: 'kungen',
     line: 'Alla andra har du slagit. Nu kör vi tills lyktorna tänds.' },
 ];
 

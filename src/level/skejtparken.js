@@ -8,7 +8,7 @@ import { cartonWall, canPyramid } from './stacks.js';
 // ---------------------------------------------------------------------------
 // Nivå: Skejtparken. En bred betongbana i ett grönområde, byggd för fart och
 // luft: ett bordshopp på startrakan, en S-kurva, ett stort hopp med våg efter,
-// en puckel där bilarna lättar och en doserad kurva. Vägen är bredare än på de andra banorna, så att det finns
+// en puckel där bilarna lättar och en bred kurva hem. Vägen är bredare än på de andra banorna, så att det finns
 // plats att välja linje och köra om.
 // ---------------------------------------------------------------------------
 
@@ -45,7 +45,8 @@ export const skejtparken = {
     start: { x: -10, z: S },
     // Medurs sett uppifrån: startrakan österut med bordshoppet, en S-kurva i öster,
     // norra rakan västerut med stora hoppet och en våg, västra rakan söderut över
-    // stora puckeln och en doserad kurva tillbaka till starten.
+    // stora puckeln och en bred kurva tillbaka till starten (ingen dosering: bilar gled
+    // över kantvallen på utsidan).
     corners: [
       { x: 34, z: S, r: 10 },
       { x: 34, z: -8, r: 7 },
@@ -85,8 +86,8 @@ export const skejtparken = {
     gaps: [{ from: [10, N], to: [8.6, N] }],
     // Hoppen och puckeln: bilarna hålls plana i luften
     airZones: [{ from: [-2, S], to: [9.5, S] }, { from: [21, N], to: [10.1, N] }, { from: [W, 10], to: [W, 1] }],
-    // Doserad kurva i sydväst, in mot startrakan
-    bank: [{ at: [W, S], deg: 14, fade: 5 }],
+    // Mild dosering i nordvästra kurvan. Brantare än så, och bilarna gled över kantvallen på utsidan.
+    bank: [{ at: [W, N], deg: 11, fade: 5 }],
   },
 
   statics: [],

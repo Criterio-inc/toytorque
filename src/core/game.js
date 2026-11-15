@@ -13,6 +13,7 @@ import { Hud, ordinal } from '../ui/hud.js';
 import { AiDriver } from '../ai/pathFollower.js';
 import { buildField } from '../race/field.js';
 import { rivalEntry } from '../race/rivals.js';
+import { helpControls } from '../vehicle/driveHelp.js';
 import { WeaponSystem } from '../weapons/weaponSystem.js';
 import { Events } from './events.js';
 import { Ghost } from '../race/ghost.js';
@@ -319,7 +320,8 @@ export class Game {
         car.ai.catchup = rubber && !car.racer.finished ? Math.max(-1, Math.min(1, (lead - car.racer.progress) / 40)) : 0;
         v.update(STEP, go ? car.ai.controls(v, STEP, this.vehicles) : { throttle: 0, steer: 0 });
       } else {
-        const cc = car === this.p2 ? c2 : c;
+        // Spelarnas körhjälp: bromshjälp och rakstyrning (inte i stuntarenan, där finns ingen bana att följa)
+        const cc = this.stunt ? (car === this.p2 ? c2 : c) : helpControls(car === this.p2 ? c2 : c, v, car.racer, this.track, this.assist);
         v.update(STEP, go && !playerDone && !car.racer.finished && !car.rewinding ? cc : { throttle: 0, steer: cc.steer });
       }
     }

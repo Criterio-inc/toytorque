@@ -925,6 +925,44 @@ if (!only || only === 'karta') {
   check('Minikarta', okRect && outside.length === 0, `rektangel ${okRect ? 'rätt' : 'FEL'}, banor utanför kartan: ${outside.join(', ') || 'inga'} (${FIELD_LEVELS.length} banor)`);
 }
 
+// 11g. Körhjälp: en ovan tangentförare (gasen i botten, styr allt eller inget, reagerar sent)
+// ska klara två varv utan att sättas tillbaka med Mycket hjälp, och skrapa klart mindre
+// i väggarna än utan broms- och styrhjälpen (kör: npm test korhjalp)
+if (!only || only === 'korhjalp') {
+  const { helpControls } = await import('../src/vehicle/driveHelp.js');
+  const drive = (level, help) => {
+    const world = createWorld(RAPIER);
+    const T = buildLevel({ world, RAPIER, level }).track;
+    const race = new Race(T, { laps: 2, countdown: 0.01 });
+    const g = T.gridSlot(0);
+    const car = new Vehicle(world, RAPIER, CARS.rasket, { ...g, y: g.y + 0.2 });
+    car.helper = 1;
+    const racer = race.addRacer(car, { isPlayer: true });
+    const delay = Math.round(0.15 / STEP), hist = [];
+    let wall = 0, resets = 0, t = 0;
+    for (; t < 200 && race.state !== 'finished'; t += STEP) {
+      const i = Math.max(0, racer.trackIndex), tp = T.poseAt((i + Math.round(4 / T.spacing)) % T.N, 0), p = car.position, q = car.currQuat;
+      const fx = 2 * (q.x * q.z + q.w * q.y), fz = 1 - 2 * (q.x * q.x + q.y * q.y);
+      const dx = tp.x - p.x, dz = tp.z - p.z;
+      const ang = Math.atan2(dx * fz - dz * fx, dx * fx + dz * fz);
+      hist.push(Math.abs(ang) > 0.1 ? Math.sign(ang) : 0);
+      const c = race.canDrive ? helpControls({ throttle: 1, steer: hist.length > delay ? hist[hist.length - 1 - delay] : 0 }, car, racer, T, help) : { throttle: 0, steer: 0 };
+      car.update(STEP, c); world.step(); car.snapshot(); race.update(STEP);
+      if (car.wallTime > 0.25) wall += STEP;
+      if (racer.stuckTime > 4 || car.position.y < -2 || racer.fell) { resets++; const rp = race.respawnPose(racer); car.place({ ...rp, y: rp.y + 0.2 }); race.resyncRacer(racer); racer.fell = false; }
+    }
+    return { done: race.state === 'finished', time: race.time, wall, resets };
+  };
+  // Regler: ingen hjälp ändrar ingenting, för hög fart inför en kurva bromsar
+  const same = { throttle: 1, steer: 0.3 };
+  const off = helpControls(same, { grounded: 4 }, { trackIndex: 0 }, { lineSpeed: [1] }, 0) === same;
+  for (const level of [kitchen, kvarteret]) {
+    const a = drive(level, 0), b = drive(level, 1);
+    check(`Körhjälp ${level.name}`, off && b.done && b.resets === 0 && b.wall < 3 && b.wall < a.wall * 0.5 && b.time < a.time,
+      `utan broms- och styrhjälp ${a.time.toFixed(0)} s, väggkontakt ${a.wall.toFixed(1)} s, återsatt ${a.resets}; med Mycket ${b.time.toFixed(0)} s, väggkontakt ${b.wall.toFixed(1)} s, återsatt ${b.resets}`);
+  }
+}
+
 // 11f. Rivaler: en i taget, seger öppnar nästa, tre rivaler ger en bil (kör: npm test rivaler)
 if (!only || only === 'rivaler') {
   const store = {};
