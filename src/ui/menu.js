@@ -1,6 +1,7 @@
 import { CARS, CAR_ORDER, carStats } from '../vehicle/carDefs.js';
 import { CUPS, Championship, loadProgress, QUALIFY } from '../race/championship.js';
 import { RIVALS, loadRivals, isRivalOpen, recordDuel } from '../race/rivals.js';
+import { GarageWall } from './garageWall.js';
 import { formatTime, ordinal } from './hud.js';
 import { isCarUnlocked, isCupOpen, unlockHint, applyTimeTrial, progressSummary, setDevAll, resetProgress, CHALLENGE, fmt as fmtChallenge } from '../race/progress.js';
 import { loadStuntProgress } from '../stunt/stunt.js';
@@ -153,6 +154,8 @@ export class Menu {
   ui(name) { this.game.events.emit('ui', { name }); }
 
   _key(e) {
+    // Garagets vägg ligger ovanpå menyn och tar tangenterna själv
+    if (this.wall?.isOpen) { if (this.wall.key(e.code)) { e.preventDefault(); e.stopImmediatePropagation(); } return; }
     if (!this.open) return;
     const items = this.screen.items.filter((i) => !i.disabled);
     const cur = items[this.index];
@@ -212,6 +215,8 @@ export class Menu {
         { label: 'Tidskörning', select: () => { this.flow = 'timetrial'; this.go(this.carScreen(() => this.go(this.trackScreen(() => this.startTimeTrial())))); } },
         // --- Stuntläge: fri körning i Stuntarenan ---
         { get label() { const p = loadStuntProgress(); return `Stuntarena <small>★ ${p.stars.length}/20${p.allStars ? ' · klar' : ''}</small>`; }, select: () => { this.flow = 'stunt'; this.go(this.carScreen(() => this.startStunt())); } },
+        // Garaget: en vägg i en leksaksaffär med alla bilar i sina kartonger (ui/garageWall.js)
+        { get label() { return `Garage <small>${progressSummary().carsUnlocked}/${CAR_ORDER.length}</small>`; }, select: () => { (this.wall ||= new GarageWall(this.game)).open(this.sel, () => this.render()); } },
         { label: 'Banbyggaren', select: () => this.openEditor() },
         { label: 'Inställningar', select: () => this.go(this.optionsScreen()) },
       ],
@@ -227,9 +232,9 @@ export class Menu {
     const self = this;
     const list = () => CAR_ORDER.filter((id) => CARS[id].cls === this.sel.cls);
     const classes = CLASSES.filter((c) => CAR_ORDER.some((id) => CARS[id].cls === c));
-    const preview = () => this._soon(() => scr, () => this.game.setup({ mode: 'showroom', carId: this.sel[key], level: this.sel.level }));
+    const preview = () => this._soon(() => scr, () => this.game.setup({ mode: 'showroom', carId: this.sel[key], level: this.sel.level, locked: !isCarUnlocked(this.sel[key]) }));
     const scr = {
-      title: player === 2 ? 'Spelare 2: välj bil' : this.flow === 'race2' ? 'Spelare 1: välj bil' : 'Välj bil',
+      title: this.flow === 'garage' ? 'Garage' : player === 2 ? 'Spelare 2: välj bil' : this.flow === 'race2' ? 'Spelare 1: välj bil' : 'Välj bil',
       get sub() { return `◀ ${self.sel.cls} ▶`; },
       get items() {
         // Låsta bilar går att titta på men inte välja
@@ -251,7 +256,7 @@ export class Menu {
       onMove: (item) => { this.sel[key] = item.id; this.render(); preview(); },
       left: () => switchClass(-1),
       right: () => switchClass(1),
-      get hint() { return `↑↓ bil · ◀▶ klass · Enter välj · Esc tillbaka · ${progressSummary().carsUnlocked}/${CAR_ORDER.length} bilar upplåsta`; },
+      get hint() { return `↑↓ bil · ◀▶ klass · ${self.flow === 'garage' ? '' : 'Enter välj · '}Esc tillbaka · ${progressSummary().carsUnlocked}/${CAR_ORDER.length} bilar upplåsta`; },
     };
     const switchClass = (d) => {
       const i = classes.indexOf(this.sel.cls);

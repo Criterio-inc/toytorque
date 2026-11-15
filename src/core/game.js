@@ -120,7 +120,7 @@ export class Game {
     }
     if (cfg.opponents != null) this.opponents = cfg.opponents;
     if (cfg.difficulty) this.difficulty = cfg.difficulty;
-    this.opts = { mode: cfg.mode || 'race', laps: cfg.laps ?? null, weapons: cfg.weapons ?? true, players: cfg.players || 1, carId2: cfg.carId2 || null, rival: cfg.rival || null };
+    this.opts = { mode: cfg.mode || 'race', laps: cfg.laps ?? null, weapons: cfg.weapons ?? true, players: cfg.players || 1, carId2: cfg.carId2 || null, rival: cfg.rival || null, locked: !!cfg.locked };
     this.paused = false;
     this._buildWorld(cfg.carId || this.carId);
   }
