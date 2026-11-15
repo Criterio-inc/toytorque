@@ -124,6 +124,11 @@ export class Post {
     this.renderPass.scene = scene;
     this.renderPass.camera = camera;
     this.ao.scene = scene; this.ao.camera = camera;
+    // Bakom menyn (lite) hoppas hörnskuggorna över: de kräver att scenen ritas en gång till,
+    // och bakgrunden ska inte göra menyn trög.
+    const ao = this.ao.enabled;
+    if (this.lite) this.ao.enabled = false;
     this.composer.render();
+    this.ao.enabled = ao;
   }
 }

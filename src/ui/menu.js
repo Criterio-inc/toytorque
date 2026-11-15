@@ -93,6 +93,8 @@ export class Menu {
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.autoPause(); });
     window.addEventListener('blur', () => this.autoPause());
     // Sparandet misslyckades (lagringen full eller avstängd)
+    // Bilhyllans bilder tas en stund efter start, när inget annat händer, så att hyllan öppnas direkt
+    setTimeout(() => (window.requestIdleCallback || setTimeout)(() => (this.wall ||= new GarageWall(game)).prepare()), 1500);
     window.addEventListener('revolt:savefailed', () => this.game.hud.message('Kunde inte spara', { warn: true, time: 2.5 }));
   }
 
@@ -137,6 +139,7 @@ export class Menu {
 
   show() {
     this.open = true;
+    this.game.post.lite = true; // billigare bakgrund medan menyn är öppen
     document.body.classList.add('menu-open');
     this.game.paused = this.game.mode !== 'demo' && this.game.mode !== 'showroom';
     this.el.style.display = 'flex';
@@ -145,6 +148,7 @@ export class Menu {
 
   hide() {
     this.open = false;
+    this.game.post.lite = false;
     this.swallowUntil = performance.now() + 150; // samma knapptryck ska inte nå spelet
     document.body.classList.remove('menu-open');
     this.el.style.display = 'none';
@@ -290,13 +294,19 @@ export class Menu {
   // Förhandsvisningen bakom menyn bygger om hela banan, vilket tar en stund. Den
   // väntar därför tills markeringen stått still en kort stund, så att det går
   // fort att bläddra. Har spelaren hunnit lämna skärmen görs ingenting.
-  _soon(screenOf, fn) {
+  _soon(screenOf, fn, wait = 220) {
     clearTimeout(this._pv);
-    this._pv = setTimeout(() => { if (this.screen === screenOf()) fn(); }, 220);
+    this._pv = setTimeout(() => { if (this.screen === screenOf()) fn(); }, wait);
   }
 
   trackScreen(next) {
-    const preview = () => this._soon(() => scr, () => this.game.setup({ mode: 'demo', level: this.sel.level, carId: this.sel.carId }));
+    // Att bygga en bana tar upp till en halv sekund och fryser allt under tiden. Banan bakom
+    // byts därför först när markeringen stått still en god stund, och inte om den redan visas.
+    const preview = () => this._soon(() => scr, () => {
+      const g = this.game;
+      if (g.mode === 'demo' && g.levelDef.id === this.sel.level && !!g.level?.level?.night === !!(g.evening && g.levelDef.evening)) return;
+      g.setup({ mode: 'demo', level: this.sel.level, carId: this.sel.carId });
+    }, 650);
     const dusk = () => !!this.game.evening;
     const scr = {
       title: 'Välj bana',
@@ -682,14 +692,32 @@ export class Menu {
       const arrowsR = it.right ? '<span class="arr">▶</span>' : '';
       return `<li class="${on ? 'on' : ''}${it.disabled ? ' off' : ''}${it.locked ? ' locked' : ''}" data-i="${it.disabled ? -1 : k}">${on ? arrows : ''}${it.label}${on ? arrowsR : ''}</li>`;
     }).join('');
-    this.el.innerHTML = `
+    const side = s.side ? s.side() : null;
+    const q = (sel) => this.el.querySelector(sel);
+    // Samma skärm som förra gången: byt bara det som ändrats. Att bygga om allt för varje
+    // knapptryck ritar om loggan med sin skugga varje gång, och det märks som tröghet.
+    const same = this._drawn === s && q('ul') && !!q('.sub') === !!s.sub && !!q('.side') === (side != null);
+    const set = (el, html) => { if (el && el._h !== html) { el.innerHTML = html; el._h = html; return true; } return false; };
+    let bind = true;
+    if (same) {
+      if (s.title !== 'LOGO') set(q('.logo'), s.title);
+      set(q('.sub'), s.sub);
+      bind = set(q('ul'), rows);
+      set(q('.side'), side);
+      set(q('.hintbar'), s.hint || '');
+    } else {
+      this.el.innerHTML = `
       <div class="panel">
         <div class="logo">${s.title === 'LOGO' ? LOGO_SVG : s.title}</div>
         ${s.sub ? `<div class="sub">${s.sub}</div>` : ''}
         <ul>${rows}</ul>
       </div>
-      ${s.side ? `<div class="side">${s.side()}</div>` : ''}
+      ${side != null ? `<div class="side">${side}</div>` : ''}
       <div class="hintbar">${s.hint || ''}</div>`;
+      this._drawn = s;
+      for (const [sel, html] of [['.logo', s.title], ['.sub', s.sub], ['ul', rows], ['.side', side], ['.hintbar', s.hint || '']]) { const el = q(sel); if (el) el._h = html; }
+    }
+    if (!bind) return;
     this.el.querySelectorAll('li[data-i]').forEach((li) => {
       const i = +li.dataset.i;
       if (i < 0) return;

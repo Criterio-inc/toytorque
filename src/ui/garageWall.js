@@ -36,11 +36,11 @@ const CSS = `
 #garage .shelf::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1.5vh; border-radius: .4vh;
   background: linear-gradient(#c58a4a, #8a5a2c 70%, #5c3a1a); box-shadow: 0 1.4vh 1.6vh rgba(0,0,0,.5); }
 #garage .gbox { position: relative; width: min(12.2vw, 22.5vh); aspect-ratio: 5 / 4.1; transform-style: preserve-3d; cursor: pointer;
-  transition: transform .2s cubic-bezier(.2,.9,.3,1.25), filter .2s; z-index: 1; }
+  transition: transform .2s cubic-bezier(.2,.9,.3,1.25); z-index: 1; will-change: transform; }
 #garage .gb-card { position: absolute; inset: 0; border-radius: .7vh; overflow: hidden; background: var(--c);
   box-shadow: inset 0 0 0 .45vh #f4e7c5, inset 0 0 0 .7vh rgba(0,0,0,.25), 0 .9vh 1.2vh rgba(0,0,0,.5); transition: box-shadow .2s; }
 #garage .gb-rays { position: absolute; inset: -40%; background: repeating-conic-gradient(from 0deg at 50% 62%, rgba(255,255,255,.2) 0 9deg, rgba(0,0,0,.08) 9deg 18deg); }
-#garage .gb-dots { position: absolute; inset: 0; background: radial-gradient(rgba(0,0,0,.16) 22%, transparent 24%) 0 0 / .7vh .7vh; mix-blend-mode: multiply; }
+#garage .gb-dots { position: absolute; inset: 0; background: radial-gradient(rgba(0,0,0,.13) 22%, transparent 24%) 0 0 / .7vh .7vh; }
 #garage .gb-name { position: absolute; left: 0; right: 0; top: 0; height: 24%; display: flex; align-items: center; justify-content: center;
   background: #f2c230; color: #5a2a12; font-size: 2.15vh; letter-spacing: .08vh; border-bottom: .35vh solid #5a2a12; white-space: nowrap; }
 #garage .gb-win { position: absolute; left: 6%; right: 6%; top: 28%; bottom: 17%; border-radius: .6vh; background: linear-gradient(160deg, #fff7e0, #e9d6a8);
@@ -138,6 +138,9 @@ export class GarageWall {
     r.dispose();
     return out;
   }
+
+  // Ta bilderna i förväg (anropas av menyn när spelet är ledigt)
+  prepare() { this.thumbs ||= this._shoot(); }
 
   // sel: menyns val ({ carId, cls }), onClose anropas när väggen stängs med Esc.
   // opts.onPick gör väggen till bilval inför ett lopp: ett klick väljer bilen och går vidare.
