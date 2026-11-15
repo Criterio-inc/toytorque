@@ -88,7 +88,12 @@ export class Race {
       if (near.d2 > (T.roadHalf + 1.5) ** 2) near = T.nearest(p.x, p.z, -1, 40, p.y);
       r.trackIndex = near.index;
       // Stora hopp: bilen får hjälp att hålla sig plan i luften om den lyfter inom zonen
-      if (T.airZones && r.vehicle.grounded > 0) r.vehicle.airHelp = T.airZones.some(([a, b]) => near.index >= a && near.index <= b) ? 0.7 : 0;
+      // (airZones är sträckor av vägen, airSpots fristående ramper ute i terrängen)
+      if ((T.airZones || T.airSpots) && r.vehicle.grounded > 0) {
+        const zone = T.airZones?.some(([a, b]) => near.index >= a && near.index <= b);
+        const spot = T.airSpots?.some((s) => (p.x - s.x) ** 2 + (p.z - s.z) ** 2 < s.r * s.r);
+        r.vehicle.airHelp = zone || spot ? 0.7 : 0;
+      }
       const roadY = T.surfaceY ? T.surfaceY(near.index, Math.max(-T.roadHalf, Math.min(T.roadHalf, near.lateral))) : T.pts[near.index].y;
       const onRoad = Math.abs(near.lateral) < T.roadHalf && p.y > roadY - 0.1 && p.y < roadY + 0.5;
       if (onRoad && r.vehicle.grounded >= 2 && !T.isGap[near.index]) r.lastValidIndex = near.index;

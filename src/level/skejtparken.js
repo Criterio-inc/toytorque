@@ -3,7 +3,8 @@ import {
   addSwingSet, addSlide, addSandbox, addBooth, addHedge, addCar, addHouse,
 } from './hoodArt.js';
 import { rng } from './warehouseArt.js';
-import { cartonWall, canPyramid } from './stacks.js';
+import { cartonWall, canPyramid, coneRow, ballGroup } from './stacks.js';
+import { addKicker, addMound, addSlab, addPlayTunnel } from './playground.js';
 
 // ---------------------------------------------------------------------------
 // Nivå: Skejtparken. En öppen betongbana i ett grönområde utan kantvallar, byggd för fart och
@@ -99,6 +100,10 @@ export const skejtparken = {
     ...canPyramid(0.37, { lateral: 1.7, base: 4 }),
     { kind: 'bigball', at: 0.664, lateral: -2.0, color: 0xffc533, roll: { period: 7, speed: 3.4, phase: 3 } },
     ...cartonWall(0.762, { lateral: 1.7, across: 4, layers: 2 }),
+    // Fotbollsträning på gräset: en rad koner och kvarglömda bollar
+    ...coneRow(0.83, { lateral: 5.5, count: 6, gap: 1.2 }),
+    ...ballGroup(0.86, { lateral: 6.5, count: 3 }),
+    ...ballGroup(0.47, { lateral: -5.5, count: 2 }),
   ],
 
   evening: true,
@@ -106,6 +111,18 @@ export const skejtparken = {
     return buildPark({ scene, world, RAPIER, track, night: !!this.night });
   },
 };
+
+// Gräskullar på genvägarna över kurvornas insidor (sydöst, nordöst och sydväst)
+const MOUNDS = [
+  { x: 25.5, z: -21.5, r: 3.4, h: 0.36 },
+  { x: 30.5, z: 24.5, r: 3.2, h: 0.34 },
+  { x: -25, z: -21, r: 3.4, h: 0.36 },
+];
+// Skejtytan innanför startrakan: två plywoodramper i rad på betongplattan
+const KICKERS = [
+  { x: -10, z: S + 7.5, rot: Math.PI / 2, h: 0.5 },
+  { x: 6, z: S + 7.5, rot: Math.PI / 2, h: 0.55, w: 2.2 },
+];
 
 function buildPark({ scene, world, RAPIER, track, night = false }) {
   const B = scene ? new HoodBatch() : null;
@@ -119,6 +136,15 @@ function buildPark({ scene, world, RAPIER, track, night = false }) {
   const P = 56;
   addPlankFence(B, world, RAPIER, { points: [[-P, -P], [P, -P], [P, P], [-P, P], [-P, -P]], h: 1.5 });
 
+  // I terrängen, för den som lämnar vägen. Allt är sådant som finns i en park på riktigt:
+  // gräskullar på kurvornas insidor, en skejtyta med två ramper på en betongplatta
+  // innanför startrakan och en krypgång på lekplatsen.
+  for (const m of MOUNDS) addMound(scene, world, RAPIER, m);
+  addSlab(scene, { x: -2, z: S + 7.5, rot: Math.PI / 2, w: 4.4, l: 26 });
+  for (const k of KICKERS) addKicker(scene, world, RAPIER, k);
+  // Stadga i luften efter kullar och ramper, som vid de stora hoppen på vägen
+  track.airSpots = [...MOUNDS.map((m) => ({ x: m.x, z: m.z, r: m.r ?? 2.6 })), ...KICKERS.map((k) => ({ x: k.x, z: k.z, r: 2.4 }))];
+
   // Mittlinje på de plana delarna (ramperna är omålad plywood)
   if (B) addTrackPaint(B, track, { centre: (i) => !track.isGap[i] && track.pts[i].y < 0.02 });
 
@@ -128,6 +154,7 @@ function buildPark({ scene, world, RAPIER, track, night = false }) {
   addSwingSet(B, world, RAPIER, { x: PX + 5, z: -5, rot: 0.1 });
   addSlide(B, world, RAPIER, { x: PX + 6.5, z: 6, rot: -0.6 });
   addBooth(B, world, RAPIER, { x: PX - 8, z: -8, rot: 0.5 });
+  addPlayTunnel(scene, world, RAPIER, { x: PX - 1, z: -1.5, rot: 0.9, len: 3.2 }); // krypgången
   for (const [x, z, w, rot] of [[PX, -PLAY, 16, 0], [PX, PLAY, 16, 0], [PX - PLAY, 0, 16, Math.PI / 2], [PX + PLAY, 0, 16, Math.PI / 2]]) {
     addHedge(B, world, RAPIER, { x, z, w, d: 0.7, h: 0.9, rot });
   }
