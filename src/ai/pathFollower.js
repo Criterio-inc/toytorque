@@ -110,7 +110,16 @@ export class AiDriver {
     const step = (i) => (P === T ? (i + PN) % PN : Math.min(PN - 2, i));
     const ahead = step(near.index + Math.round((this.lookahead + speed * 0.12) / T.spacing));
     const base = this.useLine && P === T ? T.line[ahead] : 0;
-    const lat = Math.max(-limit, Math.min(limit, base + (P === T ? this.lane : 0) + this.avoid));
+    let lat = Math.max(-limit, Math.min(limit, base + (P === T ? this.lane : 0) + this.avoid));
+    // Öppna banor: har bilen hamnat i terrängen bredvid en ramp eller puckel går det inte
+    // att köra rakt in på linjen, vägkanten är en vägg där. Kör då bredvid vägen tills
+    // den ligger i marknivå igen, och sväng in först där.
+    if (T.freeRoam && P === T && Math.abs(near.lateral) > T.roadHalf) {
+      let raised = false;
+      // Redan en kant på några centimeter stoppar en leksaksbil. Bilens mitt ligger ungefär en decimeter över marken.
+      for (let k = -3; k < 16 && !raised; k++) raised = T.pts[(near.index + k + N) % N].y > p.y - 0.1 + 0.04;
+      if (raised) lat = Math.sign(near.lateral) * (T.roadHalf + 0.9);
+    }
     const tp = P.poseAt(ahead, lat);
     const r = vehicle.body.rotation();
     _q.set(r.x, r.y, r.z, r.w).invert();

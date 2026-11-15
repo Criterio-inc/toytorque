@@ -52,6 +52,8 @@ export function helpControls(controls, vehicle, racer, track, level) {
     const ideal = Math.max(-1, Math.min(1, angle / (vehicle.def.steerMax * 0.8)));
     // Utan styrning tar hjälpen det mesta själv, så att bilen följer vägen genom mjuka kurvor
     let k = (Math.abs(steer) < 0.05 ? 0.88 : 0.62) * level;
+    // En bit utanför vägen släpper hjälpen taget: på öppna banor ska det gå att gena över gräset
+    k *= Math.max(0, Math.min(1, 1 - (Math.abs(lat) - T.roadHalf) / 2.5));
     if (steer * ideal < 0 && Math.abs(steer) > 0.5) k *= 0.3;
     steer = steer * (1 - k) + ideal * k;
   }

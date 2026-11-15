@@ -1,12 +1,12 @@
 import {
   HoodBatch, makeGround, addTree, addLamp, addPlankFence, addFarTrees, addBin, addTrackPaint,
-  addSwingSet, addSlide, addSandbox, addBooth, addHedge, addCar, addHouse, addBarricade, addCone,
+  addSwingSet, addSlide, addSandbox, addBooth, addHedge, addCar, addHouse,
 } from './hoodArt.js';
 import { rng } from './warehouseArt.js';
 import { cartonWall, canPyramid } from './stacks.js';
 
 // ---------------------------------------------------------------------------
-// Nivå: Skejtparken. En bred betongbana i ett grönområde, byggd för fart och
+// Nivå: Skejtparken. En öppen betongbana i ett grönområde utan kantvallar, byggd för fart och
 // luft: ett bordshopp på startrakan, en S-kurva, ett stort hopp med våg efter,
 // en puckel där bilarna lättar och en bred kurva hem. Vägen är bredare än på de andra banorna, så att det finns
 // plats att välja linje och köra om.
@@ -42,11 +42,16 @@ export const skejtparken = {
     barrierHeight: 0.16,
     barrierThick: 0.2,
     lineMargin: 0.8,
+    // Öppen bana: inga kantvallar, och kontrollpunkterna är så breda att det går att gena
+    // över gräset i kurvorna. Hela S-kurvan går inte att hoppa över, då missas kontrollpunkter.
+    freeRoam: true,
+    // Skålen: den doserade kurvan i nordväst har kvar sin sarg. Utan den blir doseringen en utkastramp.
+    closed: [{ from: [-20, N], to: [W, 16] }],
+    checkpointHalf: 13,
     start: { x: -10, z: S },
     // Medurs sett uppifrån: startrakan österut med bordshoppet, en S-kurva i öster,
-    // norra rakan västerut med stora hoppet och en våg, västra rakan söderut över
-    // stora puckeln och en bred kurva tillbaka till starten (ingen dosering: bilar gled
-    // över kantvallen på utsidan).
+    // norra rakan västerut med stora hoppet och en våg, skålen i nordväst och västra rakan
+    // som ren fartsträcka söderut. (En puckel där låg för nära kurvorna i båda ändar.)
     corners: [
       { x: 34, z: S, r: 10 },
       { x: 34, z: -8, r: 7 },
@@ -77,15 +82,10 @@ export const skejtparken = {
       { at: [-4, N], y: 0 },
       { at: [-9, N], y: 0.28 },
       { at: [-14, N], y: 0 },
-      // Stora puckeln på västra rakan: uppför, krön där bilarna lättar, nedför
-      // (en bit in på rakan, så att bilarna hunnit räta upp sig efter kurvan)
-      { at: [W, 11], y: 0 },
-      { at: [W, 0], y: 0.55 },
-      { at: [W, -11], y: 0 },
     ],
     gaps: [{ from: [10, N], to: [8.6, N] }],
-    // Hoppen och puckeln: bilarna hålls plana i luften
-    airZones: [{ from: [-2, S], to: [9.5, S] }, { from: [21, N], to: [10.1, N] }, { from: [W, 10], to: [W, 1] }],
+    // Hoppen: bilarna hålls plana i luften
+    airZones: [{ from: [-2, S], to: [9.5, S] }, { from: [21, N], to: [10.1, N] }],
     // Mild dosering i nordvästra kurvan. Brantare än så, och bilarna gled över kantvallen på utsidan.
     bank: [{ at: [W, N], deg: 11, fade: 5 }],
   },
@@ -112,7 +112,8 @@ function buildPark({ scene, world, RAPIER, track, night = false }) {
   if (B) B.night = night;
   const r = rng(808);
   const off = (x, z) => Math.sqrt(track.nearest(x, z).d2) - track.roadHalf; // meter utanför vägkanten
-  makeGround(scene, world, RAPIER, { size: 130 });
+  // Gräset har sämre grepp än betongen: vägen är snabbast, men gräset är en möjlighet
+  makeGround(scene, world, RAPIER, { size: 130, grip: 0.72 });
 
   // Plank runt parken
   const P = 56;
@@ -131,18 +132,6 @@ function buildPark({ scene, world, RAPIER, track, night = false }) {
     addHedge(B, world, RAPIER, { x, z, w, d: 0.7, h: 0.9, rot });
   }
 
-  // Avspärrningar och koner vid sidan av ramperna, så att hoppen syns på håll
-  for (let i = 1; i < track.N; i++) {
-    const lip = track.pts[i].y > 0.6 && track.pts[i].y >= track.pts[i - 1].y && track.pts[(i + 1) % track.N].y < track.pts[i].y;
-    if (!lip) continue;
-    const n = track.normals[i];
-    for (const side of [1, -1]) {
-      const a = track.poseAt(i - 6, side * (track.roadHalf + 1.3));
-      addBarricade(B, world, RAPIER, { x: a.x, z: a.z, rot: Math.atan2(n.x, n.z) + Math.PI / 2 });
-      for (const k of [14, 20, 26]) { const c = track.poseAt(i - k, side * (track.roadHalf + 0.9)); addCone(B, world, RAPIER, { x: c.x, z: c.z }); }
-    }
-  }
-
   // Villor bakom planket, så att parken ligger i ett bostadsområde
   const HOUSES = [[-30, -68, 0, 0xe9d3b8], [-6, -68, 0, 0xcfe0ea], [20, -68, 0, 0xf0d3c6], [68, -20, -Math.PI / 2, 0xdfe8c9], [68, 8, -Math.PI / 2, 0xe9d3b8], [-68, 6, Math.PI / 2, 0xf0d3c6], [-12, 68, Math.PI, 0xcfe0ea], [16, 68, Math.PI, 0xdfe8c9]];
   HOUSES.forEach(([x, z, rot, siding], k) => addHouse(B, world, RAPIER, { x, z, rot, w: 9.4, d: 7.6, garage: null, toStreet: 6, seed: 60 + k, siding, roof: 0x55575c, accent: 0x24344f }));
@@ -150,20 +139,20 @@ function buildPark({ scene, world, RAPIER, track, night = false }) {
   addCar(B, world, RAPIER, { x: -20, z: -60.5, rot: Math.PI / 2, kind: 'sedan', color: 0x2a5d9a });
   addCar(B, world, RAPIER, { x: 8, z: -60.5, rot: Math.PI / 2, kind: 'pickup', color: 0xb23a2c });
 
-  // Träd i gräset, både innanför och utanför slingan, aldrig närmare vägen än tre meter
+  // Träd i gräset, både innanför och utanför slingan, aldrig närmare vägen än sju meter
   let seed = 1;
-  for (let k = 0; k < 60; k++) {
+  for (let k = 0; k < 110; k++) {
     const x = (r() - 0.5) * 104, z = (r() - 0.5) * 104;
-    if (off(x, z) < 3.2 || (Math.abs(x - PX) < PLAY + 2 && Math.abs(z) < PLAY + 2)) continue;
+    if (off(x, z) < 7 || (Math.abs(x - PX) < PLAY + 2 && Math.abs(z) < PLAY + 2)) continue;
     addTree(B, world, RAPIER, { x, z, h: 7 + r() * 4, s: 2.4 + r() * 1.4, seed: seed++, tint: r() * 0.5 });
   }
 
   // Lyktor längs utsidan av rakorna (tänds på kvällen) och papperskorgar vid dem
   for (let i = 0; i < track.N; i += Math.round(26 / track.spacing)) {
-    const p = track.poseAt(i, track.roadHalf + 1.6), n = track.normals[i];
+    const p = track.poseAt(i, track.roadHalf + 6), n = track.normals[i]; // en bra bit ut: gräset närmast vägen är körbar yta
     if (track.pts[i].y > 0.05) continue; // inte bredvid ramperna
     addLamp(B, world, RAPIER, { x: p.x, z: p.z, rot: Math.atan2(-n.x, -n.z) });
-    const q = track.poseAt(i + 4, track.roadHalf + 1.8);
+    const q = track.poseAt(i + 4, track.roadHalf + 6.3);
     addBin(B, world, RAPIER, { x: q.x, z: q.z, rot: Math.atan2(-n.x, -n.z) });
   }
 

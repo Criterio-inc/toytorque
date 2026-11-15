@@ -118,7 +118,8 @@ export class Race {
       if (this.running && !r.finished) {
         // Kryper bilen fram på gräset längs en mur eller kantvall ökar sträckan sakta,
         // men den kommer aldrig upp på vägen igen. Det räknas som att sitta fast.
-        const creeping = !onRoad && Math.abs(r.vehicle.speed) < 2 && Math.abs(near.lateral) > T.roadHalf && !this._onShortcut(p);
+        // På öppna banor (freeRoam) är det tillåtet att köra långsamt i terrängen.
+        const creeping = !T.freeRoam && !onRoad && Math.abs(r.vehicle.speed) < 2 && Math.abs(near.lateral) > T.roadHalf && !this._onShortcut(p);
         if (r.progress > r.bestProgress + 0.5 && !creeping) { r.bestProgress = r.progress; r.stuckTime = 0; }
         // Utanför huvudbanan i fart (en lång eller långsam genväg) står
         // sträckan still fast bilen kör: räkna då bara långsamt
