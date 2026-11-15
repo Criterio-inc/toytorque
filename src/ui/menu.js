@@ -226,7 +226,25 @@ export class Menu {
     };
   }
 
+  // Bilvalet inför ett lopp görs vid bilhyllan (ui/garageWall.js). Skärmen här under är
+  // tom: den finns för att Esc från nästa skärm ska leda tillbaka till hyllan.
   carScreen(next, player = 1) {
+    const scr = {
+      title: 'Välj bil', items: [], hint: '',
+      enter: () => {
+        this.render();
+        (this.wall ||= new GarageWall(this.game)).open(this.sel, () => { if (this.screen === scr) (scr.onBack ? scr.onBack() : this.back()); }, {
+          key: player === 2 ? 'carId2' : 'carId',
+          title: player === 2 ? 'SPELARE 2: VÄLJ BIL' : this.flow === 'race2' ? 'SPELARE 1: VÄLJ BIL' : 'VÄLJ BIL',
+          onPick: () => next(),
+        });
+      },
+    };
+    return scr;
+  }
+
+  // Det gamla bilvalet som lista med bilen i 3D bakom (används inte längre i menyflödet)
+  carListScreen(next, player = 1) {
     const key = player === 2 ? 'carId2' : 'carId';
     if (!this.sel[key]) this.sel[key] = this.sel.carId;
     const self = this;

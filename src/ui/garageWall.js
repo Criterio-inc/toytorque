@@ -5,6 +5,7 @@ import { Vehicle } from '../vehicle/vehicle.js';
 import { CarModel } from '../vehicle/carModel.js';
 import { CARS, CAR_ORDER, carStats } from '../vehicle/carDefs.js';
 import { isCarUnlocked, unlockHint, progressSummary } from '../race/progress.js';
+import { RIVALS, loadRivals } from '../race/rivals.js';
 
 // ---------------------------------------------------------------------------
 // Garaget: en vägg i en leksaksaffär med alla bilar i var sin kartong, tre
@@ -74,6 +75,10 @@ const CSS = `
 #garage .gb-info .bar i { display: block; height: .7vh; border-radius: .5vh; background: #d9c69a; overflow: hidden; }
 #garage .gb-info .bar i b { display: block; height: 100%; background: #2f8a85; }
 #garage .gb-info .bar.hard i b { background: #d9622b; }
+#garage .trophies { display: flex; align-items: center; gap: .8vh; margin-top: 1.6vh; font: 700 1.5vh "Trebuchet MS", system-ui, sans-serif; color: #ffe9a8; }
+#garage .trophies b { margin-right: .6vh; letter-spacing: .1vh; text-transform: uppercase; }
+#garage .trophies span { padding: .35vh 1.1vh .45vh; border-radius: .4vh; background: rgba(0,0,0,.28); color: rgba(255,233,168,.55); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); padding-bottom: 1vh; }
+#garage .trophies span.won { background: var(--t); color: #fff6d8; text-shadow: 0 .15vh 0 rgba(0,0,0,.6); box-shadow: inset 0 0 0 .2vh rgba(255,246,216,.6); }
 #garage .hint { padding: .9vh 2.4vh 1.6vh; font: 700 1.7vh "Trebuchet MS", system-ui, sans-serif; color: #ffe9a8; text-shadow: 0 .2vh 0 rgba(0,0,0,.5); }
 `;
 
@@ -134,11 +139,13 @@ export class GarageWall {
     return out;
   }
 
-  // sel: menyns val ({ carId, cls }), onClose anropas när väggen stängs
-  open(sel, onClose) {
-    this.sel = sel; this.onClose = onClose;
+  // sel: menyns val ({ carId, cls }), onClose anropas när väggen stängs med Esc.
+  // opts.onPick gör väggen till bilval inför ett lopp: ett klick väljer bilen och går vidare.
+  // opts.key är vilket fält i sel som sätts (carId2 för spelare 2), opts.title skyltens text.
+  open(sel, onClose, opts = {}) {
+    this.sel = sel; this.onClose = onClose; this.opts = opts; this.field = opts.key || 'carId';
     this.thumbs ||= this._shoot();
-    this.index = Math.max(0, CAR_ORDER.indexOf(sel.carId));
+    this.index = Math.max(0, CAR_ORDER.indexOf(sel[this.field] ?? sel.carId));
     this._build();
     this.el.classList.add('on');
     this.isOpen = true;
@@ -161,7 +168,7 @@ export class GarageWall {
            ${d.desc ? `<div>${d.desc}</div>` : ''}${bar('Fart', s.fart)}${bar('Acceleration', s.acc)}${bar('Grepp', s.grepp)}${bar('Vikt', s.vikt)}${bar('Svårighet', s.svar, 'hard')}`
         : `<h4>🔒 ${name}</h4><div class="meta">${d.cls}${secret ? ' · hemlig bil' : ` · ${d.engine === 'Glow' ? 'Glow (nitro)' : 'El'} · ${d.drive}`}</div>
            <div class="req">${unlockHint(id, levelName)}</div>${secret ? '' : `${d.desc ? `<div>${d.desc}</div>` : ''}${bar('Fart', s.fart)}${bar('Acceleration', s.acc)}${bar('Svårighet', s.svar, 'hard')}`}`;
-      return `<div class="gbox ${i % COLS < 4 ? 'right' : 'left'}${open ? '' : ' locked'}${secret ? ' secret' : ''}${id === this.sel.carId ? ' mine' : ''}" data-i="${i}" style="--c:${CLASS_COLOR[d.cls] || '#888'};--dx:${((3 - (i % COLS)) * 1.3).toFixed(1)}vw;--dy:${((1 - Math.floor(i / COLS)) * 3.5).toFixed(1)}vh">
+      return `<div class="gbox ${i % COLS < 4 ? 'right' : 'left'}${open ? '' : ' locked'}${secret ? ' secret' : ''}${id === (this.sel[this.field] ?? this.sel.carId) ? ' mine' : ''}" data-i="${i}" style="--c:${CLASS_COLOR[d.cls] || '#888'};--dx:${((3 - (i % COLS)) * 1.3).toFixed(1)}vw;--dy:${((1 - Math.floor(i / COLS)) * 3.5).toFixed(1)}vh">
         <div class="gb-card"><div class="gb-rays"></div><div class="gb-dots"></div>
           <div class="gb-name">${name.toUpperCase()}</div>
           <div class="gb-win"><img alt="" src="${this.thumbs[id]}"></div>
@@ -173,9 +180,15 @@ export class GarageWall {
     };
     const rows = [];
     for (let k = 0; k < CAR_ORDER.length; k += COLS) rows.push(CAR_ORDER.slice(k, k + COLS).map((id, j) => box(id, k + j)).join(''));
-    this.el.innerHTML = `<div class="sign">★ BILHYLLAN ★<small>${progressSummary().carsUnlocked} av ${CAR_ORDER.length} bilar upplåsta</small></div>
+    // Troféhyllan: en vimpel per rival, i rivalens färg när den är slagen
+    const beaten = loadRivals().beaten;
+    const trophies = RIVALS.map((r) => (beaten.includes(r.id)
+      ? `<span class="won" style="--t:#${r.colors.body.toString(16).padStart(6, '0')}">★ ${r.name}</span>`
+      : '<span>?</span>')).join('');
+    this.el.innerHTML = `<div class="sign">★ ${this.opts.title || 'BILHYLLAN'} ★<small>${progressSummary().carsUnlocked} av ${CAR_ORDER.length} bilar upplåsta</small></div>
+      <div class="trophies"><b>Slagna rivaler</b>${trophies}</div>
       <div class="wall">${rows.map((r) => `<div class="shelf">${r}</div>`).join('')}</div>
-      <div class="hint">För musen över en kartong · klicka eller tryck Enter för att välja bilen · Esc tillbaka</div>`;
+      <div class="hint">För musen över en kartong · ${this.opts.onPick ? 'klicka eller tryck Enter för att köra med bilen' : 'klicka eller tryck Enter för att välja bilen'} · Esc tillbaka</div>`;
     this.boxes = [...this.el.querySelectorAll('.gbox')];
     this.boxes.forEach((b, i) => {
       b.addEventListener('mouseenter', () => this._focus(i, false));
@@ -194,9 +207,12 @@ export class GarageWall {
   _pick() {
     const id = CAR_ORDER[this.index];
     if (!isCarUnlocked(id)) { this.game.events.emit('ui', { name: 'back' }); return; }
-    this.sel.carId = id; this.sel.cls = CARS[id].cls;
+    this.sel[this.field] = id;
+    if (this.field === 'carId') this.sel.cls = CARS[id].cls;
     this.game.events.emit('ui', { name: 'select' });
     this.boxes.forEach((b, k) => b.classList.toggle('mine', k === this.index));
+    // Bilval inför ett lopp: stäng och gå vidare (utan att räknas som Esc)
+    if (this.opts.onPick) { this.isOpen = false; this.el.classList.remove('on'); this.opts.onPick(); }
   }
 
   // Tangenter medan väggen är öppen. Returnerar true om tangenten togs om hand.
