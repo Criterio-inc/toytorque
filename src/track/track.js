@@ -17,6 +17,8 @@ import { G, groups, GRAVITY } from '../core/physics.js';
 //   freeRoam    true               öppen bana: inga kantvallar, bilarna får lämna vägen
 //   closed      [[a0, a1], ...]    sträckor på en öppen bana som ändå har kantvallar (doserade kurvor)
 //   checkpointHalf  meter          halva bredden på kontrollpunkterna (öppna banor har breda)
+//   sideExits   [{zone, from, aim, side, speed}]  avfart mot något vid sidan av vägen (en lucka, ett rör):
+//                                  styr spelaren ditåt inne i zonen siktar körhjälpen på aim
 //   bank        [{at, deg, len?, fade?}]  doserad kurva: hela kurvan som
 //                                  punkten ligger i lutas deg grader (ytterkanten
 //                                  upp; negativt = mot kurvan), tonas in/ut
@@ -154,6 +156,7 @@ export function buildTrackData(spec) {
 
   const data = {
     pts, tangents, normals, dist, length, N, roadHalf, spacing, checkpoints, isGap, isOpen, bank, tanB, freeRoam: !!spec.freeRoam,
+    sideExits: spec.sideExits || [],
     startHeading: Math.atan2(tangents[0].x, tangents[0].z),
     barrier: { height: spec.barrierHeight ?? 0.22, thick: spec.barrierThick ?? 0.12 },
 

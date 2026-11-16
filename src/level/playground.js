@@ -9,6 +9,7 @@ import { G, groups } from '../core/physics.js';
 //   addKicker      skejtramp i plywood (hör hemma på en skejtyta, inte i gräset)
 //   addSlab        betongplatta under skejtramper
 //   addPlayTunnel  krypgång på en lekplats
+//   addSewerPipe   avloppsrör som ligger på en byggplats
 // Regeln: ställ aldrig ut något bara för att det är roligt att köra i. Det ska
 // vara något som naturligt finns där banan utspelar sig.
 // rot är färdriktningen genom föremålet (0 = mot +z, som bilarnas heading).
@@ -118,8 +119,10 @@ export function addSlab(scene, { x, z, rot = 0, w = 4, l = 12 }) {
   scene.add(m);
 }
 
-/** Krypgång på en lekplats: ett kort plaströr i glad färg, len långt och med innerradien r. */
-export function addPlayTunnel(scene, world, RAPIER, { x, z, y = 0, rot = 0, len = 3, r = 0.6, t = 0.05, color = 0xf2c230, ends = 0xe03a2a }) {
+// Ett rör som ligger på marken och går att köra igenom. Fysiken är ett valv av väggbitar
+// över marken (bilen kör på marken inuti). full ritar röret som en hel cylinder, lite
+// nedsjunken, i stället för ett halvt valv.
+function tube(scene, world, RAPIER, { x, z, y = 0, rot = 0, len, r, t, color, ends, full = false }) {
   const N = 9; // väggbitar runt valvet
   if (world) {
     const body = fixed(world, RAPIER);
@@ -136,10 +139,11 @@ export function addPlayTunnel(scene, world, RAPIER, { x, z, y = 0, rot = 0, len 
   }
   if (!scene) return;
   const grp = new THREE.Group();
-  const shell = (rad) => new THREE.CylinderGeometry(rad, rad, len, 20, 1, true, Math.PI / 2, Math.PI).rotateX(Math.PI / 2);
+  const arc = full ? [0, Math.PI * 2] : [Math.PI / 2, Math.PI];
+  const shell = (rad) => new THREE.CylinderGeometry(rad, rad, len, 24, 1, true, ...arc).rotateX(Math.PI / 2);
   grp.add(new THREE.Mesh(shell(r), mats.plastic(color)), new THREE.Mesh(shell(r + t), mats.plastic(color)));
   for (const s of [1, -1]) { // röda kanter i ändarna
-    const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.01, r + t + 0.04, 20, 1, 0, Math.PI), mats.plastic(ends));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.01, r + t + 0.04, 24, 1, 0, full ? Math.PI * 2 : Math.PI), mats.plastic(ends));
     ring.position.z = s * len / 2;
     grp.add(ring);
   }
@@ -147,3 +151,13 @@ export function addPlayTunnel(scene, world, RAPIER, { x, z, y = 0, rot = 0, len 
   scene.add(place(grp, x, y, z, rot));
 }
 
+
+/** Krypgång på en lekplats: ett kort plaströr i glad färg. */
+export function addPlayTunnel(scene, world, RAPIER, { len = 3, r = 0.6, t = 0.05, color = 0xf2c230, ends = 0xe03a2a, ...o }) {
+  tube(scene, world, RAPIER, { ...o, len, r, t, color, ends });
+}
+
+/** Betongrör som ligger på en byggplats i väntan på att grävas ner: ett avloppsrör att köra igenom. */
+export function addSewerPipe(scene, world, RAPIER, { len = 6, r = 0.85, t = 0.1, ...o }) {
+  tube(scene, world, RAPIER, { ...o, len, r, t, color: 0xa9a8a2, ends: 0x8f8e88, full: true });
+}

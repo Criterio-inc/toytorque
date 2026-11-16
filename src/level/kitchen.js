@@ -8,7 +8,9 @@ import { buildKitchen } from './kitchenArt.js';
 // spisen med hopp över kokböckerna, förbi kylen, längs frukostbaren och rakt
 // in under matbordet mellan stolsbenen och över mattan. I nordvästra hörnet
 // klättrar banan upp på en skärbrädesplatå med en doserad kurva vid bänkarna
-// och ett krön ner mot spisen.
+// och ett krön ner mot spisen. Efter matbordet finns en sidoväg för spelaren:
+// rakt fram genom husdjursluckan i köksdörren, över altanen och in igen genom
+// de öppna pardörrarna.
 // ---------------------------------------------------------------------------
 
 export const ROOM = { x0: -20, x1: 20, z0: -14, z1: 14, H: 2.7 };
@@ -23,8 +25,17 @@ const ISL = -4; // köksöns gång
 const SX = -6; // svängen runt köksön
 const SN = 4; // gången mellan ön och mattan
 
+// Altanen utanför södra väggen. Efter matbordet går det att köra rakt fram
+// genom husdjursluckan i köksdörren, över trädäcket och in igen genom de öppna
+// pardörrarna. Vägen är längre än kurvan inne men slipper vattenpölen.
+const ALTAN = {
+  flap: { x: DX, door: 0.9, w: 0.56, h: 0.34 },
+  doors: { x: -12.4, w: 2.2 },
+  x0: -15.2, x1: 7.4, depth: 4.6,
+};
+
 export const KITCHEN = {
-  ROOM, NZ, SZ, EX, WX, BAR, DX, ISL, SX, SN,
+  ROOM, NZ, SZ, EX, WX, BAR, DX, ISL, SX, SN, ALTAN,
   table: { x: DX, z: 4.6, len: 3.4, depth: 1.1, h: 0.75 },
   jump: { lip: 6.5, gap: 1.2 },
   spill: { x0: -10, x1: -7.4 }, // vattenpölen vid kattskålarna (på södra rakan)
@@ -97,7 +108,13 @@ export const kitchen = {
     airZones: [{ from: [-2, NZ], to: [6.4, NZ] }], // det höga hoppet: bilarna hålls plana i luften
     bank: [{ at: [WX, NZ], deg: 14, fade: 2 }],
     // Under matbordet är benen kanten
-    openings: [{ from: [DX, 3.3], to: [DX, 5.9] }],
+    openings: [{ from: [DX, 3.3], to: [DX, 5.9] },
+      // Ut mot husdjursluckan och in från pardörrarna: där saknas listen mot väggen
+      { from: [3.64, 9.4], to: [2.32, 10.95] }, { from: [-11.2, SZ], to: [-14.9, 11.5] }],
+    // Styr spelaren vänster efter matbordet siktar körhjälpen på luckan
+    sideExits: [{ zone: [3.0, 6.1, 5.2, 14.2], from: [ALTAN.flap.x, 6], aim: [ALTAN.flap.x, 15.6], side: 1, speed: 5 }],
+    // Kontrollpunkterna räcker ut över altanen
+    checkpointHalf: 7.5,
   },
 
   statics: [],

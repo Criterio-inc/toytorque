@@ -963,6 +963,72 @@ if (!only || only === 'korhjalp') {
   }
 }
 
+// 11h. Sidovägar som bara spelaren tar: husdjursluckan och altanen i Köket och
+// avloppsröret på Kvarteret (kör: npm test sidovagar)
+if (!only || only === 'sidovagar') {
+  const { helpControls } = await import('../src/vehicle/driveHelp.js');
+  const setup = (level, pose) => {
+    const world = createWorld(RAPIER);
+    const T = buildLevel({ world, RAPIER, level }).track;
+    const race = new Race(T, { laps: 3, countdown: 0.01 });
+    const car = new Vehicle(world, RAPIER, CARS.rasket, { y: 0.2, ...pose });
+    car.helper = 1;
+    const racer = race.addRacer(car, { isPlayer: true });
+    while (!race.canDrive) race.update(STEP);
+    car.place({ y: 0.2, ...pose });
+    race.resyncRacer(racer);
+    const step = (c, help = 1) => { car.update(STEP, help ? helpControls(c, car, racer, T, help) : c); world.step(); car.snapshot(); race.update(STEP); };
+    const toward = (x, z) => {
+      const p = car.position, q = car.currQuat;
+      const fx = 2 * (q.x * q.z + q.w * q.y), fz = 1 - 2 * (q.x * q.x + q.y * q.y);
+      const dx = x - p.x, dz = z - p.z;
+      return Math.max(-1, Math.min(1, Math.atan2(dx * fz - dz * fx, dx * fx + dz * fz) / 0.35));
+    };
+    return { T, race, car, racer, step, toward };
+  };
+
+  // Köket. Utan styrning följer bilen vägen förbi luckan. Ett tryck åt vänster
+  // efter matbordet och körhjälpen siktar genom luckan. Sedan över altanen
+  // (mållinjen räknas där ute), in genom pardörrarna och vidare runt banan.
+  {
+    const from = { x: 4, z: 3, heading: 0 };
+    const a = setup(kitchen, from);
+    for (let t = 0; t < 5; t += STEP) a.step({ throttle: 1, steer: 0 });
+    const stays = a.car.position.z < 13.6 && a.car.position.x < 2;
+
+    const b = setup(kitchen, from);
+    let t = 0, flapT = -1, maxY = 0;
+    for (; t < 8 && b.car.position.z < 14.8; t += STEP) { const z = b.car.position.z; b.step({ throttle: 1, steer: z > 6.6 && z < 7.4 ? 1 : 0 }); maxY = Math.max(maxY, b.car.position.y); }
+    const through = b.car.position.z >= 14.8 && Math.abs(b.car.position.x - 4) < 0.5;
+    flapT = t;
+    const wps = [[0, 17.2], [-9, 16.6], [-11.4, 15.8], [-12.6, 14.0], [-14.6, 12.2]];
+    let w = 0;
+    for (; t < 30 && w < wps.length; t += STEP) {
+      const p = b.car.position;
+      if (Math.hypot(wps[w][0] - p.x, wps[w][1] - p.z) < 1.0) { w++; continue; }
+      const st = b.toward(...wps[w]);
+      b.step({ throttle: Math.abs(st) > 0.6 ? 0.25 : 0.7, steer: st }); // lugnt i svängarna, däcket är smalt
+    }
+    const lineOnDeck = b.racer.started && b.racer.nextCp >= 1;
+    const cp0 = b.racer.nextCp;
+    for (; t < 45 && b.racer.nextCp < cp0 + 3; t += STEP) {
+      const i = Math.max(0, b.racer.trackIndex), tp = b.T.poseAt((i + Math.round(4 / b.T.spacing)) % b.T.N, 0);
+      b.step({ throttle: 1, steer: b.toward(tp.x, tp.z) });
+    }
+    check('Köket: luckan och altanen', stays && through && w === wps.length && lineOnDeck && b.racer.nextCp >= cp0 + 3 && b.racer.stuckTime < 2,
+      `utan styrning ${stays ? 'kvar på vägen' : 'FEL: lämnar vägen'}, genom luckan ${through ? 'efter ' + flapT.toFixed(1) + ' s' : 'FEL'}, altanen ${w}/${wps.length} punkter, mållinjen ${lineOnDeck ? 'räknas' : 'FEL'}, kontrollpunkt ${b.racer.nextCp} efter ${t.toFixed(0)} s`);
+  }
+
+  // Kvarteret: rakt genom avloppsröret på byggplatsen utan att fastna
+  {
+    const c = setup(kvarteret, { x: -2.8, z: -43.85, heading: Math.PI / 2 });
+    let maxY = 0, off = 0;
+    for (let t = 0; t < 3 && c.car.position.x < 3; t += STEP) { c.step({ throttle: 1, steer: 0 }, 0); maxY = Math.max(maxY, c.car.position.y); off = Math.max(off, Math.abs(c.car.position.z + 43.85)); }
+    check('Kvarteret: avloppsröret', c.car.position.x >= 3 && maxY < 0.3 && off < 0.6,
+      `ut på andra sidan vid x ${c.car.position.x.toFixed(1)}, högst ${maxY.toFixed(2)} m, som mest ${off.toFixed(2)} m från rörets mitt`);
+  }
+}
+
 // 11f. Rivaler: en i taget, seger öppnar nästa, tre rivaler ger en bil (kör: npm test rivaler)
 if (!only || only === 'rivaler') {
   const store = {};

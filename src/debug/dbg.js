@@ -64,6 +64,19 @@ export function attachDebug(game) {
       }
       return this.state();
     },
+    // Stillbild på en plats vid sidan av banan (altanen, ett rör). Även
+    // ?plats=x,z,grader i adressen.
+    shotAt(x, z, deg = 0) {
+      game.race.skipIntro();
+      this.startRace();
+      car().place({ x, y: 0.2, z, heading: (deg * Math.PI) / 180 });
+      for (let k = 0; k < 90; k++) game.step({ throttle: 0, steer: 0 });
+      game.chase.snap = true;
+      game.paused = true;
+      game.hud.helpTimer = 0;
+      for (let k = 0; k < 40; k++) game.render(1 / 60, 1);
+      return this.state();
+    },
     // Ritanrop för en bildruta (inklusive skuggor och efterbehandling)
     calls() {
       const info = game.renderer.info;
@@ -75,5 +88,7 @@ export function attachDebug(game) {
     },
   };
   const shot = new URLSearchParams(location.search).get('shot');
-  if (shot) setTimeout(() => window.DBG.shot(+shot, new URLSearchParams(location.search).get('vy')), 1200);
+  const spot = new URLSearchParams(location.search).get('plats');
+  if (spot) setTimeout(() => window.DBG.shotAt(...spot.split(',').map(Number)), 1200);
+  else if (shot) setTimeout(() => window.DBG.shot(+shot, new URLSearchParams(location.search).get('vy')), 1200);
 }

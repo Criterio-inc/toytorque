@@ -646,23 +646,58 @@ function addFloors(C, R, tileRect) {
   C.B.add('brass', box(tx1 - tx0, 0.004, 0.03, (tx0 + tx1) / 2, 0.007, tz1), rgb(0xc9a46a));
 }
 
-function addRoom(C, R) {
+// Väggyta med dörrhål nedifrån. holes: [{x, w, h}] i väggens egna koordinater.
+function notchedWall(len, H, holes) {
+  const s = new THREE.Shape();
+  s.moveTo(-len / 2, 0);
+  for (const h of holes) {
+    s.lineTo(h.x - h.w / 2, 0); s.lineTo(h.x - h.w / 2, h.h); s.lineTo(h.x + h.w / 2, h.h); s.lineTo(h.x + h.w / 2, 0);
+  }
+  s.lineTo(len / 2, 0); s.lineTo(len / 2, H); s.lineTo(-len / 2, H);
+  const g = new THREE.ShapeGeometry(s);
+  const p = g.attributes.position, uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.getX(i) + len / 2) / 2, p.getY(i) / 2);
+  return g;
+}
+
+// gaps: dörrhål i södra väggen ut mot altanen, [{x, w, h}] med karmen inräknad
+function addRoom(C, R, gaps = []) {
   const W = R.x1 - R.x0, D = R.z1 - R.z0, cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2;
-  for (const [hx, hz, x, z] of [[W / 2 + 0.3, 0.15, cx, R.z0 - 0.15], [W / 2 + 0.3, 0.15, cx, R.z1 + 0.15], [0.15, D / 2 + 0.3, R.x0 - 0.15, cz], [0.15, D / 2 + 0.3, R.x1 + 0.15, cz]]) {
+  for (const [hx, hz, x, z] of [[W / 2 + 0.3, 0.15, cx, R.z0 - 0.15], [0.15, D / 2 + 0.3, R.x0 - 0.15, cz], [0.15, D / 2 + 0.3, R.x1 + 0.15, cz]]) {
     solid(C, hx, R.H / 2, hz, x, R.H / 2, z, 0, 0.5);
   }
+  // Södra väggen delas runt dörrhålen, med en bit vägg kvar ovanför varje hål
+  const cuts = [...gaps].sort((a, b) => a.x - b.x);
+  let from = R.x0 - 0.3;
+  for (const g of cuts) {
+    const a = g.x - g.w / 2 + 0.07, b = g.x + g.w / 2 - 0.07;
+    solid(C, (a - from) / 2, R.H / 2, 0.15, (a + from) / 2, R.H / 2, R.z1 + 0.15, 0, 0.5);
+    solid(C, (b - a) / 2, (R.H - g.h) / 2, 0.15, g.x, (R.H + g.h) / 2, R.z1 + 0.15, 0, 0.5);
+    from = b;
+  }
+  solid(C, (R.x1 + 0.3 - from) / 2, R.H / 2, 0.15, (R.x1 + 0.3 + from) / 2, R.H / 2, R.z1 + 0.15, 0, 0.5);
   if (!C.B) return;
   const sides = [
-    { x: cx, z: R.z0, rot: 0, len: W }, { x: cx, z: R.z1, rot: Math.PI, len: W },
+    { x: cx, z: R.z0, rot: 0, len: W }, { x: cx, z: R.z1, rot: Math.PI, len: W, holes: cuts.map((g) => ({ x: cx - g.x, w: g.w, h: g.h })).reverse() },
     { x: R.x0, z: cz, rot: Math.PI / 2, len: D }, { x: R.x1, z: cz, rot: -Math.PI / 2, len: D },
   ];
   for (const s of sides) {
-    const g = new THREE.PlaneGeometry(s.len, R.H);
-    const uv = g.attributes.uv;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * s.len / 2, uv.getY(i) * R.H / 2);
-    C.B.add('wall', place(g.translate(0, R.H / 2, 0), s.x, 0, s.z, s.rot), [1, 1, 1]);
-    // Golvsockel och taklist
-    C.B.add('paint', place(box(s.len, 0.09, 0.015, 0, 0.045, 0.0075), s.x, 0, s.z, s.rot), rgb(0xf4f1ea));
+    const holes = s.holes || [];
+    let g;
+    if (holes.length) g = notchedWall(s.len, R.H, holes);
+    else {
+      g = new THREE.PlaneGeometry(s.len, R.H).translate(0, R.H / 2, 0);
+      const uv = g.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * s.len / 2, uv.getY(i) * R.H / 2);
+    }
+    C.B.add('wall', place(g, s.x, 0, s.z, s.rot), [1, 1, 1]);
+    // Golvsockel (bruten vid dörrhålen) och taklist
+    let a = -s.len / 2;
+    for (const h of [...holes, { x: s.len / 2, w: 0 }]) {
+      const b = h.x - h.w / 2;
+      if (b - a > 0.02) C.B.add('paint', place(box(b - a, 0.09, 0.015, (a + b) / 2, 0.045, 0.0075), s.x, 0, s.z, s.rot), rgb(0xf4f1ea));
+      a = h.x + h.w / 2;
+    }
     C.B.add('paint', place(box(s.len, 0.05, 0.04, 0, R.H - 0.025, 0.02), s.x, 0, s.z, s.rot), rgb(0xf4f1ea));
   }
   const ceil = new THREE.PlaneGeometry(W, D);
@@ -708,6 +743,169 @@ function addWindow(C, { x, z, rotY = 0, w = 1.4, h = 1.2, sill = 1.0, curtains =
       F.add('fabric', g.clone().rotateY(Math.PI).translate(s * (w / 2 + 0.28), ch / 2 + 0.02, 0.17), rgb(0xd9cdb8));
     }
     F.add('brass', rod(-w / 2 - 0.6, sill + h + 0.3, 0.16, w / 2 + 0.6, sill + h + 0.3, 0.16, 0.012), rgb(0xb8925a));
+  }
+}
+
+// Karm runt ett dörrhål i södra väggen, lika djup som väggen är tjock. w och h är hålets mått.
+function doorFrame(F, w, h) {
+  const white = rgb(0xf6f4ef), t = 0.07;
+  for (const s of [-1, 1]) F.box('lacquer', t, h, 0.4, s * (w / 2 - t / 2), h / 2, -0.12, white);
+  F.box('lacquer', w, t, 0.4, 0, h - t / 2, -0.12, white);
+  F.box('steel', w, 0.012, 0.36, 0, 0.006, -0.13, rgb(0x9a9a9a));
+}
+
+// Glasat dörrblad med gångjärnen i (x, z) i väggens koordinater. flap: hål för en
+// husdjurslucka nertill, då är nedre delen en slät panel.
+function addLeaf(F, { x, z, rot = 0, w, h, flap = null, color = 0xf6f4ef }) {
+  const white = rgb(color), st = 0.09, d = 0.045;
+  const put = (key, g, col) => F.add(key, place(g, x, 0, z, rot), col);
+  put('lacquer', box(st, h, d, st / 2, h / 2, 0), white);
+  put('lacquer', box(st, h, d, w - st / 2, h / 2, 0), white);
+  put('lacquer', box(w - st * 2, st, d, w / 2, h - st / 2, 0), white);
+  let y0 = 0.12;
+  if (!flap) put('lacquer', box(w - st * 2, y0, d, w / 2, y0 / 2, 0), white);
+  else {
+    y0 = 0.85;
+    const side = (w - st * 2 - flap.w) / 2;
+    for (const s of [-1, 1]) put('lacquer', box(side, y0, d * 0.7, w / 2 + s * (flap.w / 2 + side / 2), y0 / 2, 0), white);
+    put('lacquer', box(flap.w, y0 - flap.h, d * 0.7, w / 2, flap.h + (y0 - flap.h) / 2, 0), white);
+    put('lacquer', box(w - st * 2, 0.07, d, w / 2, y0, 0), white);
+    // Luckans ram i mörk plast och själva luckan uppfälld utåt
+    const rim = rgb(0x3a3d42);
+    for (const s of [-1, 1]) put('rubber', box(0.025, flap.h, 0.07, w / 2 + s * (flap.w / 2 + 0.0125), flap.h / 2, 0), rim);
+    put('rubber', box(flap.w + 0.05, 0.025, 0.07, w / 2, flap.h + 0.0125, 0), rim);
+    const sheet = new THREE.PlaneGeometry(flap.w - 0.02, flap.h - 0.02).translate(0, -(flap.h - 0.02) / 2, 0).rotateX(1.3);
+    put('glass', sheet.clone().translate(w / 2, flap.h, -0.04), rgb(0x8fa3b0));
+    const back = sheet.clone().scale(-1, 1, 1);
+    back.computeVertexNormals();
+    put('glass', back.translate(w / 2, flap.h, -0.04), rgb(0x8fa3b0));
+    put('rubber', box(flap.w - 0.02, 0.012, 0.012, w / 2, flap.h - Math.cos(1.3) * (flap.h - 0.02), -0.04 - Math.sin(1.3) * (flap.h - 0.02)), rim);
+  }
+  const gw = w - st * 2, gh = h - st - y0, gy = y0 + gh / 2;
+  put('glass', new THREE.PlaneGeometry(gw, gh).translate(w / 2, gy, 0), [1, 1, 1]);
+  put('glass', new THREE.PlaneGeometry(gw, gh).rotateY(Math.PI).translate(w / 2, gy, 0), [1, 1, 1]);
+  put('chrome', box(0.03, 0.2, 0.09, w - st / 2, 1.02, 0), rgb(0xcfcfcf));
+}
+
+// Köksdörren ut mot altanen: stängd, med en husdjurslucka i bilhöjd
+function addFlapDoor(C, { x, z, flap }) {
+  const F = frame(C, x, z, Math.PI);
+  const w = flap.door, h = 2.05, side = (w - flap.w) / 4;
+  for (const s of [-1, 1]) F.solid(side, h / 2, 0.025, s * (flap.w / 2 + side), h / 2, -0.03);
+  F.solid(flap.w / 2, (h - flap.h) / 2, 0.025, 0, flap.h + (h - flap.h) / 2, -0.03);
+  if (!C.B) return;
+  doorFrame(F, w + 0.14, h + 0.07);
+  addLeaf(F, { x: -w / 2, z: -0.03, w, h, flap, color: 0x8fb7a6 }); // målad köksdörr, lätt att känna igen på håll
+}
+
+// Pardörrarna mot altanen står öppna en solig förmiddag. Bladen är uppslagna
+// utåt och styr in bilarna mot öppningen.
+function addOpenDoors(C, { x, z, w }) {
+  const F = frame(C, x, z, Math.PI);
+  const h = 2.1, lw = w / 2;
+  const leaves = [{ lx: w / 2, rot: Math.PI / 2 - 0.15 }, { lx: -w / 2, rot: Math.PI / 2 + 0.15 }];
+  for (const l of leaves) {
+    const dx = Math.cos(l.rot), dz = -Math.sin(l.rot);
+    F.solid(lw / 2, h / 2, 0.025, l.lx + dx * lw / 2, h / 2, -0.32 + dz * lw / 2, l.rot);
+  }
+  if (!C.B) return;
+  doorFrame(F, w + 0.14, h + 0.07);
+  for (const l of leaves) addLeaf(F, { x: l.lx, z: -0.32, rot: l.rot, w: lw, h: h - 0.02 });
+  for (const s of [-1, 1]) {
+    const cw = 0.42, ch = h + 0.27;
+    const g = new THREE.PlaneGeometry(cw, ch, 12, 1);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getX(i) * 38) * 0.035);
+    g.computeVertexNormals();
+    F.add('fabric', g.clone().translate(s * (w / 2 + 0.36), ch / 2 + 0.02, 0.16), rgb(0xd9cdb8));
+    F.add('fabric', g.clone().rotateY(Math.PI).translate(s * (w / 2 + 0.36), ch / 2 + 0.02, 0.17), rgb(0xd9cdb8));
+  }
+  F.add('brass', rod(-w / 2 - 0.7, h + 0.32, 0.16, w / 2 + 0.7, h + 0.32, 0.16, 0.012), rgb(0xb8925a));
+}
+
+// Altanen: husets utsida, trädäck med räcke, gräsmatta, klippt häck och himmel.
+// Allt ligger utanför södra väggen och syns genom dörrarna.
+function addPatio(C, R, A, gaps) {
+  const z0 = R.z1 + 0.3, z1 = z0 + A.depth, cx = (A.x0 + A.x1) / 2, len = A.x1 - A.x0;
+  // Räcket håller bilarna kvar på däcket
+  const rails = [[A.x0, z0, A.x0, z1], [A.x0, z1, A.x1, z1], [A.x1, z1, A.x1, z0]];
+  for (const [ax, az, bx, bz] of rails) {
+    const L = Math.hypot(bx - ax, bz - az), rot = Math.atan2(-(bz - az), bx - ax);
+    solid(C, L / 2, 0.45, 0.025, (ax + bx) / 2, 0.45, (az + bz) / 2, rot, 0.5);
+    if (!C.B) continue;
+    const white = rgb(0xf1eee6);
+    const at = (g) => place(g, (ax + bx) / 2, 0, (az + bz) / 2, rot);
+    C.B.add('paint', at(box(L, 0.04, 0.09, 0, 0.93, 0)), white);
+    C.B.add('paint', at(box(L, 0.04, 0.05, 0, 0.1, 0)), white);
+    const posts = Math.max(1, Math.round(L / 1.6));
+    for (let k = 0; k <= posts; k++) C.B.add('paint', at(box(0.07, 0.95, 0.07, -L / 2 + (k / posts) * L, 0.475, 0)), white);
+    const n = Math.round(L / 0.13);
+    for (let k = 1; k < n; k++) C.B.add('paint', at(box(0.028, 0.8, 0.028, -L / 2 + (k / n) * L, 0.51, 0)), white);
+  }
+  addBench(C, { x: A.x1 - 0.4, z: z0 + 2.4, rotY: Math.PI / 2, len: 1.4 });
+  addPlant(C, { x: A.x1 - 0.5, z: z1 - 0.5, size: 1.3, seed: 3, pot: 0xb5653f });
+  addPlant(C, { x: A.x0 + 0.5, z: z1 - 0.5, size: 1.2, seed: 9, pot: 0xb5653f });
+  addPlant(C, { x: A.x0 + 0.5, z: z0 + 0.5, size: 0.9, seed: 4, pot: 0xb5653f });
+  if (!C.B) return;
+
+  // Trädäcket: brädor längs huset
+  const n = Math.round(A.depth / 0.145), bw = A.depth / n;
+  for (let k = 0; k < n; k++) {
+    // Brädorna ligger kant i kant och skiftar i ton: springor hade visat kökets golv under
+    C.B.add('wood', box(len, 0.02, bw, cx, -0.002, z0 + (k + 0.5) * bw, 0.9), rgb([0xb89468, 0xa98459, 0xb28d62][k % 3]));
+  }
+  C.B.add('rubber', box(1.5, 0.008, 0.5, A.doors.x, 0.012, z0 + 0.4), rgb(0x6a5a44)); // dörrmatta
+
+  // Gräsmattan runt däcket och den klippta häcken mot grannen
+  const E = 22, lawn = rgb(0x79a84e), Y = 0.005;
+  const patch = (xa, xb, za, zb) => C.B.add('floorDecal', new THREE.PlaneGeometry(xb - xa, zb - za).rotateX(-Math.PI / 2).translate((xa + xb) / 2, Y, (za + zb) / 2), lawn);
+  patch(-E, A.x0, z0, E); patch(A.x1, E, z0, E); patch(A.x0, A.x1, z1, E);
+  const hedge = rgb(0x6a9a4c);
+  C.B.add('plant', box(E * 2, 1.7, 0.8, 0, 0.85, E - 0.5), hedge);
+  for (const s of [-1, 1]) C.B.add('plant', box(0.8, 1.7, E - z0, s * (E - 0.5), 0.85, (z0 + E) / 2), hedge);
+
+  // Husets utsida: faluröd panel, vita foder, takfot. Nyckeln 'wall' kastar ingen
+  // skugga, annars hade väggen skymt solen som lyser in över köksgolvet.
+  const fl = R.x1 - R.x0 + 0.6;
+  C.B.add('wall', notchedWall(fl, R.H, gaps.map((g) => ({ x: g.x, w: g.w, h: g.h }))).translate(0, 0, z0), rgb(0x84322a));
+  C.B.add('wall', box(fl + 0.8, 0.1, 0.9, 0, R.H + 0.05, z0 + 0.3), rgb(0x4a4642));
+  const white = rgb(0xf6f4ef);
+  for (const w of [{ x: -4, w: 1.8, h: 1.4, sill: 0.85 }, { x: 6, w: 1.8, h: 1.4, sill: 0.85 }]) {
+    const cy = w.sill + w.h / 2, t = 0.09;
+    C.B.add('black', box(w.w, w.h, 0.02, w.x, cy, z0 + 0.012), rgb(0x2a3540));
+    for (const s of [-1, 1]) {
+      C.B.add('lacquer', box(t, w.h + t * 2, 0.05, w.x + s * (w.w / 2 + t / 2), cy, z0 + 0.025), white);
+      C.B.add('lacquer', box(w.w, t, 0.05, w.x, cy + s * (w.h / 2 + t / 2), z0 + 0.025), white);
+    }
+    C.B.add('lacquer', box(0.05, w.h, 0.04, w.x, cy, z0 + 0.03), white);
+  }
+
+  // Himlen bakom häcken: ljus vid horisonten, blå uppåt
+  const sky = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false });
+  for (const [w, x, z, rot] of [[E * 2 + 2, 0, E - 0.05, Math.PI], [E - z0 + 2, -E + 0.05, (z0 + E) / 2, Math.PI / 2], [E - z0 + 2, E - 0.05, (z0 + E) / 2, -Math.PI / 2]]) {
+    const g = new THREE.PlaneGeometry(w, 18).translate(0, 9, 0);
+    const p = g.attributes.position, col = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) col.set(p.getY(i) > 1 ? [0.22, 0.45, 0.88] : [0.62, 0.8, 0.98], i * 3);
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const m = new THREE.Mesh(g, sky);
+    m.position.set(x, 0, z); m.rotation.y = rot;
+    C.scene.add(m);
+  }
+}
+
+// Där banans egen list är borttagen för dörrarna sätts innerlisten tillbaka,
+// så att öppningen bara leder ut mot väggen och inte in över golvet.
+function addInnerList(C, track, minZ) {
+  const { pts, normals, isOpen, N, roadHalf } = track;
+  for (let i = 0; i < N; i++) {
+    const j = (i + 1) % N;
+    if (!isOpen[i] || !isOpen[j] || pts[i].z < minZ) continue;
+    const off = roadHalf + 0.045;
+    const ax = pts[i].x - normals[i].x * off, az = pts[i].z - normals[i].z * off;
+    const bx = pts[j].x - normals[j].x * off, bz = pts[j].z - normals[j].z * off;
+    const L = Math.hypot(bx - ax, bz - az), rot = Math.atan2(-(bz - az), bx - ax);
+    solid(C, L / 2 + 0.02, 0.065, 0.045, (ax + bx) / 2, 0.065, (az + bz) / 2, rot, 0.4);
+    if (C.B) C.B.add('paint', place(box(L + 0.04, 0.13, 0.09, 0, 0.065, 0), (ax + bx) / 2, 0, (az + bz) / 2, rot), rgb(i % 2 ? 0xd8b98c : 0xc4a172));
   }
 }
 
@@ -1369,8 +1567,11 @@ export function buildKitchen({ scene, world, RAPIER, track, K }) {
   const { NZ, SZ, EX, WX, BAR, DX, SN, SX, ISL } = K;
   const PI = Math.PI;
 
+  // Dörrhålen ut mot altanen (karmen inräknad)
+  const A = K.ALTAN;
+  const gaps = [{ x: A.doors.x, w: A.doors.w + 0.14, h: 2.17 }, { x: A.flap.x, w: A.flap.door + 0.14, h: 2.12 }];
   addFloors(C, R, [R.x0, 1.0, R.z0, 6.6]);
-  addRoom(C, R);
+  addRoom(C, R, gaps);
 
   // --- norra väggen: bänkskåp, diskho under fönstret, spis med fläkt -------
   const D = 'doors', DR = 'drawers';
@@ -1536,8 +1737,10 @@ export function buildKitchen({ scene, world, RAPIER, track, K }) {
   }
 
   // --- södra väggen: altandörrar, fönster, husdjurshörnan -------------------
-  addWindow(C, { x: -13.0, z: R.z1, rotY: PI, w: 1.0, h: 2.1, sill: 0.02, mullions: 0, door: true });
-  addWindow(C, { x: -11.8, z: R.z1, rotY: PI, w: 1.0, h: 2.1, sill: 0.02, mullions: 0, door: true, curtains: true });
+  addOpenDoors(C, { x: A.doors.x, z: R.z1, w: A.doors.w });
+  addFlapDoor(C, { x: A.flap.x, z: R.z1, flap: A.flap });
+  addPatio(C, R, A, gaps);
+  addInnerList(C, track, 8);
   addWindow(C, { x: -4.0, z: R.z1, rotY: PI, w: 1.8, h: 1.4, sill: 0.85, mullions: 1, curtains: true });
   addWindow(C, { x: 6.0, z: R.z1, rotY: PI, w: 1.8, h: 1.4, sill: 0.85, mullions: 1, curtains: true });
   addRadiator(C, { x: -4.0, z: R.z1, rotY: PI, w: 1.4 });

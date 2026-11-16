@@ -23,6 +23,32 @@ export function helpControls(controls, vehicle, racer, track, level) {
   const speed = Math.hypot(lv.x, lv.z);
   let throttle = controls.throttle || 0, steer = controls.steer || 0;
 
+  // --- Avfarter -------------------------------------------------------------
+  // Vid en lucka eller ett rör bredvid vägen hade styrhjälpen dragit bilen
+  // förbi. Styr spelaren mot avfarten inne i dess zon siktar hjälpen i stället
+  // på öppningen och håller farten nere, tills bilen är igenom.
+  const pos0 = vehicle.currPos;
+  let exit = null;
+  for (const e of T.sideExits || []) {
+    const [x0, z0, x1, z1] = e.zone;
+    if (pos0.x < x0 || pos0.x > x1 || pos0.z < z0 || pos0.z > z1) continue;
+    if (racer.exitAim === e || steer * e.side > 0.5) exit = e;
+  }
+  racer.exitAim = exit;
+  if (exit) {
+    // Sikta på en punkt en bit fram på linjen genom öppningen, så att bilen
+    // kommer rakt in och inte snett mot karmen
+    const ax = exit.aim[0] - exit.from[0], az = exit.aim[1] - exit.from[1], al = Math.hypot(ax, az);
+    const t = Math.min(al, ((pos0.x - exit.from[0]) * ax + (pos0.z - exit.from[1]) * az) / al + 1.2);
+    _q.copy(vehicle.currQuat).invert();
+    _v.set(exit.from[0] + (ax / al) * t - pos0.x, 0, exit.from[1] + (az / al) * t - pos0.z).applyQuaternion(_q);
+    const ideal = Math.max(-1, Math.min(1, Math.atan2(_v.x, _v.z) / (vehicle.def.steerMax * 0.8)));
+    const k = Math.min(1, 0.5 + 0.5 * level);
+    _out.steer = steer * (1 - k) + ideal * k;
+    _out.throttle = speed > exit.speed && throttle > 0 ? (speed > exit.speed * 1.15 ? -level : 0) : throttle;
+    return _out;
+  }
+
   // --- Bromshjälp -----------------------------------------------------------
   // Banans egen fartkurva (samma som datorförarna kör efter) har inbromsningen
   // inräknad. Normal tillåter en bra bit över den, Mycket nästan ingenting.

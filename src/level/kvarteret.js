@@ -6,6 +6,7 @@ import {
   addDirtPile, addTunnel, fitShortcutOpenings, VERGE, WALK, rng,
 } from './hoodArt.js';
 import { cartonWall, canPyramid, coneRow } from './stacks.js';
+import { addSewerPipe } from './playground.js';
 
 // ---------------------------------------------------------------------------
 // Nivå: Kvarteret. Amerikanskt villakvarter en solig eftermiddag i riktig
@@ -31,6 +32,8 @@ const START_X = -6; // startlinjen på Maple Street
 const TRENCH = { x0: 10.5, x1: 11.7 }; // diket på Maple Street (plankrampens krön)
 const TUNNEL = { x0: 22, x1: 34 }; // jordtunneln genom byggkullen på Maple Street
 const SITE = { x0: -16, x1: 19, z0: -58, z1: MAPLE - 2.6 }; // byggplatsen norr om Maple
+// Avloppsröret på byggplatsen: in strax efter bommen, genom röret och ut igen före plankrampen
+const PIPE = { in0: -6.2, in1: -2.6, out0: 2.2, out1: 4.4, x: 0, z: MAPLE - 3.85, len: 3.6 };
 const MOUND = { x0: 17, x1: 38, z: MAPLE, dz: 11 }; // byggkullen över Maple Street
 // Genvägarna: grusgången (bakgatan → Maple) och garaget (Oak → Elm)
 const GRAVEL = { from: [-20, ALLEY], via: [[-29, -18.5], [-34.5, -25.5], [-33.5, -33]], to: [-19, MAPLE] };
@@ -109,7 +112,11 @@ export const kvarteret = {
     // Hörnet West Street–Maple Street är en doserad plywoodvall
     bank: [{ at: [WEST, MAPLE], deg: 14, fade: 6 }],
     // Tunneln och bakgatan: väggarna och plankstaketen är kanterna
-    openings: [{ from: [TUNNEL.x0, MAPLE], to: [TUNNEL.x1, MAPLE] }, { from: [-14.5, ALLEY], to: [-36, ALLEY] }],
+    openings: [{ from: [TUNNEL.x0, MAPLE], to: [TUNNEL.x1, MAPLE] }, { from: [-14.5, ALLEY], to: [-36, ALLEY] },
+      // Byggplatsens infart vid bommen och utfarten längre fram: där saknas kantsten
+      { from: [PIPE.in0, MAPLE], to: [PIPE.in1, MAPLE] }, { from: [PIPE.out0, MAPLE], to: [PIPE.out1, MAPLE] }],
+    // Kontrollpunkterna är breda nog för svängen in över byggplatsen
+    checkpointHalf: 7.5,
     shortcuts: [
       // Grusgången: av bakgatan, mellan plankstaketen och ut över en plankramp
       // på en uppfart till Maple Street
@@ -473,7 +480,7 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
   // Soptunnor längs bakgatan
   for (const x of [-34, -32.9, -27, -25.9, -19.5, -18.4]) addBin(B, world, RAPIER, { x, z: ALLEY + 3.0, rot: Math.PI, color: [0x2d6a3e, 0x2a5d9a, 0x3a3a3a][Math.abs(Math.round(x)) % 3] });
 
-  buildSite({ B, world, RAPIER, track, near, scDist, nearSc, idx, curbOut });
+  buildSite({ B, scene, world, RAPIER, track, near, scDist, nearSc, idx, curbOut });
 
   // Tegelstenar under rampernas kant (hemmabyggen på Maple och Oak)
   const gapStarts = track.isGap.map((g, i) => (g && !track.isGap[(i - 1 + track.N) % track.N] ? i : -1)).filter((i) => i >= 0);
@@ -521,7 +528,7 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
 
 // Byggplatsen vid starten, diket, jordtunneln och staketen längs bakgatan och
 // genvägarna (staketen och tunnelväggarna är banans kanter där vallarna saknas).
-function buildSite({ B, world, RAPIER, track, near, scDist, nearSc, idx, curbOut }) {
+function buildSite({ B, scene, world, RAPIER, track, near, scDist, nearSc, idx, curbOut }) {
   const scs = track.shortcuts || [];
 
   // --- start: bom, vaktkur, grävmaskin och jordhögar ------------------------
@@ -537,9 +544,12 @@ function buildSite({ B, world, RAPIER, track, near, scDist, nearSc, idx, curbOut
   addDirtPile(B, world, RAPIER, { x: 13.4, z: MAPLE + curbOut + 1.9, r: 1.0, h: 0.6, seed: 5 });
   addCar(B, world, RAPIER, { x: -10.5, z: -51.5, rot: 0.35, kind: 'sedan', color: 0xc4202a });
   for (const [x, z, l] of [[-1.5, -47, 3], [-0.9, -47.4, 2], [18.5, -46, 4]]) addBrickStack(B, world, RAPIER, { x, z, layers: l, seed: x * 7 });
+  // Avloppsrör som väntar på att grävas ner. Det ligger längs gatan och går att köra igenom:
+  // in på byggplatsen strax efter bommen, genom röret och ut på gatan igen före plankrampen.
+  addSewerPipe(scene, world, RAPIER, { x: PIPE.x, z: PIPE.z, rot: Math.PI / 2, len: PIPE.len });
   // Koner längs byggplatsen och vid diket
   for (let x = SITE.x0 + 1; x < SITE.x1; x += 2.6) {
-    if ((x > 4 && x < 8.5) || (x > START_X - 6 && x < START_X + 1) || x > 16) continue;
+    if ((x > START_X - 6 && x < 8.5) || x > 16) continue; // fritt vid infarten, röret och utfarten
     addCone(B, world, RAPIER, { x, z: MAPLE - curbOut - 1.35 });
   }
   for (const x of [8.6, 13.6]) addCone(B, world, RAPIER, { x, z: MAPLE + curbOut + 0.6 });
