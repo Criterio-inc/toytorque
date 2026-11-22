@@ -1,174 +1,231 @@
 import {
-  makeConcreteFloor, makeHallWalls, addLooseBox, addFloorLines,
+  makeConcreteFloor, makeHallWalls, addPillar, addLooseBox, addToyBlock, addBeachBall, addFloorLines, PALLET,
   edgeSegments, edgeColliders, WarehouseBatch, addBoxStackB, addPalletB, addLoadedPalletB, addForklift,
-  addGuardRail, addYardRamp, addLandingDeck, addOpenCarton, addRackRow, addAisleSign,
+  addRackTunnel, addGuardRail, addPlankRamp, addYardRamp, addLandingDeck, addOpenCarton,
 } from './warehouseArt.js';
+import { cartonWall } from './stacks.js';
 
 // ---------------------------------------------------------------------------
-// Nivå: Lagret. Ett varuhuslager i riktig skala (meter): långa rader pallställ,
-// sex meter höga, med varor på pallar på varje plan. Banan slingrar sig genom
-// gångarna: ut längs huvudgången, upp genom gång 14, runt radens ände, ner
-// genom gång 13, runt nästa ände, upp genom gång 12 och tillbaka längs gång 11
-// vid väggen, där en körbrygga i stål står mitt i gången.
-//
-// Genvägen går genom ett tomt fack längst ner i stället mellan gång 14 och 13,
-// under en gaffeltrucks upplyfta pall. I gång 12 ligger en tom kartong på
-// sidan bredvid vägen som går att köra igenom.
+// Nivå: Lagret. Leksakslager i riktig skala (meter) med en åtta där banan går
+// över sig själv på en bro. Hoppet på vänsterrakan går från en körbrygga i
+// stål ner på plywood över pallar. Vid diagonalen under bron ligger en tom
+// kartong på sidan bredvid vägen: den som vill kan köra igenom den.
 // ---------------------------------------------------------------------------
 
-const ROWS = {
-  W: { x: -15, z0: -21.5, z1: 19.5 }, // mellan gång 11 och 12
-  A: { x: -5, z0: -10.2, z1: 21 }, // mellan gång 12 och 13
-  B: { x: 5, z0: -22, z1: 14.2 }, // mellan gång 13 och 14 (genomfarten)
-  E: { x: 15, z0: -22, z1: 22 }, // mellan gång 14 och lastkajen
-};
-const PASS = { bay: 11, z: 10.0 }; // genomfarten under stället (fack 11 i rad B)
-const CART = { x: -12.8, z: 3.0, len: 2.0 }; // kartongen i gång 12
+const C = 26; // hörnens avstånd från mitten
+
+// Kartongen bredvid diagonalen under bron (vägen följer x = -t, z = t här).
+// t anger läget längs diagonalen; kartongen ligger 3,4 m ut på vänster sida.
+const BOX = { t: 15.2, off: 3.4, len: 2.0, out: [11, 13], in: [17.2, 19.4] };
+const diag = (t, off = 0) => [-t + off * Math.SQRT1_2, t + off * Math.SQRT1_2];
 
 export const lagret = {
   id: 'lagret',
   name: 'Lagret',
-  layout: 2, // banan byggdes om 2026-11-22: äldre spökbilar gäller inte längre
   laps: 3,
   sky: 0x9fa6ad,
   fog: { near: 30, far: 85 },
+  // Ljus snett in genom takfönstren: pelare, ställ och lådor skuggar golvet
   lighting: {
-    sun: { color: 0xfff0d8, intensity: 2.6, offset: [14, 24, 6] },
-    hemi: { sky: 0xeef2f6, ground: 0x6d6457, intensity: 0.6 },
+    sun: { color: 0xfff0d8, intensity: 2.9, offset: [16, 22, 8] },
+    hemi: { sky: 0xeef2f6, ground: 0x6d6457, intensity: 0.5 },
     shadow: { range: 22, size: 2048 },
   },
   look: { ao: 0.9, contrast: 1.12 },
-  floor: { size: 64, tile: 1.2, grip: 1.0, colorA: '#9a9c9e', colorB: '#919396', grout: '#7d7f82', gloss: 0.32 },
-  walls: { height: 10, color: 0xb9b3a6 },
-
-  // Vägen är lagergolvet; kanterna är gul- och svartrandiga påkörningsskydd
-  trackTheme: {
-    road: '#9c9d9c', roadRough: 0.42, side: 0x6f7173, pillar: 0x6f7173,
-    barrierA: 0xf2b705, barrierB: 0x2a2a2a,
-  },
+  floor: { size: 74, tile: 1.2, grip: 1.0, colorA: '#9a9c9e', colorB: '#919396', grout: '#7d7f82', gloss: 0.32 },
+  walls: { height: 9, color: 0xb9b3a6 },
 
   track: {
     scale: 1,
     roadHalf: 1.6,
     spacing: 0.6,
-    checkpoints: 26,
-    barrierHeight: 0.16,
+    checkpoints: 22,
+    barrierHeight: 0.18,
     barrierThick: 0.1,
-    start: { x: -6, z: -26 },
-    // Huvudgången österut, gång 14 norrut, runt rad B, gång 13 söderut, runt
-    // rad A, gång 12 norrut och gång 11 söderut tillbaka till huvudgången
+    start: { x: C, z: 0 },
+    // Åtta: höger raka nedåt, diagonal upp till vänster, vänster raka nedåt,
+    // diagonal (över bron) upp till höger.
     corners: [
-      { x: 10, z: -26, r: 4 },
-      { x: 10, z: 23, r: 5 },
-      { x: 0, z: 23, r: 5 },
-      { x: 0, z: -19, r: 5 },
-      { x: -10, z: -19, r: 5 },
-      { x: -10, z: 23, r: 4 },
-      { x: -22, z: 23, r: 4 },
-      { x: -22, z: -26, r: 4 },
+      { x: C, z: -C, r: 6 },
+      { x: -C, z: C, r: 4 },
+      { x: -C, z: -C, r: 4 },
+      { x: C, z: C, r: 6 },
     ],
     elevation: [
-      // Körbryggan i gång 11: rak ramp ända ut i kanten, glapp, plywood ner
-      { at: [-22, 9], y: 0 },
-      { at: [-22, 6], y: 0.08 },
-      { at: [-22, 0.5], y: 0.7, linear: true },
-      { at: [-22, -0.7], y: 0.5, linear: true },
-      { at: [-22, -4.5], y: 0.2, linear: true },
-      { at: [-22, -9], y: 0 },
+      // Bron på diagonalen mot höger (passerar över den andra diagonalen)
+      { at: [-15, -15], y: 0 },
+      { at: [-6, -6], y: 1.0 },
+      { at: [6, 6], y: 1.0 },
+      { at: [15, 15], y: 0 },
+      // Pallkullen på höger raka före starten: uppför, krön och nedför
+      { at: [C, 19], y: 0 },
+      { at: [C, 12.5], y: 0.6 },
+      { at: [C, 5], y: 0 },
+      // Hoppet på vänster raka: rak ramp ända ut i kanten, glapp, landning ner
+      { at: [-C, 7], y: 0 },
+      { at: [-C, 4], y: 0.08 },
+      { at: [-C, -1.5], y: 0.7, linear: true },
+      { at: [-C, -2.7], y: 0.5, linear: true },
+      { at: [-C, -6.5], y: 0.2, linear: true },
+      { at: [-C, -11], y: 0 },
     ],
-    gaps: [{ from: [-22, 0.5], to: [-22, -0.7] }],
-    airZones: [{ from: [-22, 8], to: [-22, 0.6] }],
-    // Hörnet ut från huvudgången är doserat: en vall av pallar under vägen
-    bank: [{ at: [10, -26], deg: 12, fade: 4 }],
+    gaps: [{ from: [-C, -1.5], to: [-C, -2.7] }],
+    airZones: [{ from: [-C, 6], to: [-C, -1.6] }], // det höga hoppet: bilarna hålls plana i luften
+    // Doserat hörn av lastpallar i sydöstra hörnet
+    bank: [{ at: [C, -C], deg: 15, fade: 6 }],
+    // Pallställets tunnel på vänster raka: ställets sparklister är kanten.
+    // Av- och påfarten till genvägen är öppet golv.
     openings: [
-      // Ut till kartongen och in igen
-      { from: [-10, -2.2], to: [-10, 0.6] }, { from: [-10, 5.2], to: [-10, 8.6] },
+      { from: [-C, 15.8], to: [-C, 7.6] },
+      { from: [4.5, -4.5], to: [-6.5, 6.5] },
+      { from: [-C, -8.5], to: [-16.5, -16.5] },
+      // Ut till kartongen och in igen; på andra sidan står ett påkörningsskydd
+      { from: diag(BOX.out[0]), to: diag(BOX.out[1]) }, { from: diag(BOX.in[0]), to: diag(BOX.in[1]) },
     ],
-    checkpointHalf: 3.8,
-    // Styr spelaren åt höger före kartongen siktar körhjälpen genom den
-    sideExits: [{
-      zone: [-14, -8, -8.3, 4.8], side: -1, speed: 5,
-      line: [[-10.2, -4.5], [-11.4, -1.4], [CART.x, 0.8], [CART.x, CART.z + 1.2]],
-    }],
-    // Genvägen: av i gång 14, genom det tomma facket under stället och under
-    // gaffeltruckens upplyfta pall, in i gång 13. Smal och tvär men kort.
+    // Kontrollpunkterna når ut till kartongen
+    checkpointHalf: 4.6,
+    // Styr spelaren åt vänster före kartongen siktar körhjälpen genom den
+    sideExits: [{ zone: [-17, 5, -5, 21], line: [diag(9, 0.2), diag(11.6, 1.6), diag(13.3, BOX.off), diag(BOX.t + 1.1, BOX.off)], side: 1, speed: 5 }],
+    // Genvägen genom innerfältet: av diagonalen under bron, förbi pelaren
+    // och över gaffeltruckens plankramp, in på vänster raka efter hoppet.
+    // Smal och med en skarp sväng, men kortare. Raka bitar närmast
+    // huvudbanan är bara golv (glapp i genvägens väg) så att dess vallar
+    // aldrig hamnar på huvudbanan.
     shortcuts: [{
-      from: [10, 4.6], via: [[8.0, PASS.z], [1.9, PASS.z]], to: [0, 4.6], r: 2.0, roadHalf: 1.0, ai: 0.3,
+      from: [2, -2], via: [[-12.7, 6.5]], to: [-C, -13], r: 6.5, roadHalf: 1.3, ai: 0.3,
+      elevation: [
+        { at: [-18.3, -1.8], y: 0 },
+        { at: [-20.2, -4.6], y: 0.24, linear: true },
+        { at: [-20.5, -5.05], y: 0.01 },
+      ],
+      gaps: [{ from: [2, -2], to: [-7.3, 3.4] }, { from: [-20.2, -4.6], to: [-C, -13] }],
     }],
   },
 
   statics: [],
 
+  // Lagerhallen runt banan. Returnerar lösa saker som ska synkas varje bild.
   environment({ scene, world, RAPIER, track }) {
-    const size = 64, H = 10;
+    const size = 74, H = 9;
     const B = scene ? new WarehouseBatch() : null;
     makeConcreteFloor(scene, world, RAPIER, { size });
     makeHallWalls(scene, world, RAPIER, { size, height: H });
-
-    // Pallställen. Rad B har en genomfart i golvplanet.
+    // Pelare i innerfälten (mellan åttans öglor)
+    for (const [x, z] of [[14, 0], [-14, 0], [0, 15], [0, -15]]) addPillar(scene, world, RAPIER, { x, z, size: 0.8, height: H });
+    // Kartongstaplar och pallar längs väggarna
     let seed = 1;
-    for (const [k, R] of Object.entries(ROWS)) {
-      addRackRow(B, world, RAPIER, {
-        cx: R.x, cz: (R.z0 + R.z1) / 2, L: R.z1 - R.z0, open: k === 'B' ? [PASS.bay] : [], seed: seed++,
-      });
+    for (const [x, z, rotY, cols, rows, layers] of [
+      [-33, -30, 0, 2, 3, 3], [-33, -18, 0, 2, 2, 2], [-33, 10, 0.1, 2, 3, 4], [-32.5, 24, 0, 2, 2, 2],
+      [33, -26, 0, 2, 2, 3], [33, 8, -0.05, 2, 3, 2], [33, 28, 0, 2, 2, 4],
+      [-20, 33.5, 0, 3, 2, 3], [-6, 33.5, 0, 2, 2, 2], [12, 33.5, 0, 4, 2, 3],
+      [-14, -33.5, 0, 3, 2, 2], [6, -33.5, 0, 2, 2, 4], [22, -33, 0.08, 3, 2, 2],
+      [9, 4, 0.4, 2, 2, 2], [-9, -4, 0.4, 2, 2, 2],
+    ]) addBoxStackB(B, world, RAPIER, { x, z, rotY, cols, rows, layers, seed: seed++ });
+    for (const [x, z, rotY] of [[-31, -6, 0.2], [30.5, -12, 0], [-24, -32.5, 0], [26, 32.5, 1.57]]) {
+      addPalletB(B, world, RAPIER, { x, z, rotY, seed });
+      addBoxStackB(B, world, RAPIER, { x, z, y: PALLET.h, rotY, cols: 1, rows: 1, layers: 2, seed: seed++ });
     }
-    // Ställ längs väggarna: väster om gång 11 och norr om banan
-    addRackRow(B, world, RAPIER, { cx: -28.6, cz: -1, L: 46, double: false, seed: seed++ });
-    addRackRow(B, world, RAPIER, { cx: 2, cz: 29.8, L: 50, rot: Math.PI / 2, double: false, seed: seed++ });
+    // Leksaker som dekor
+    addToyBlock(scene, world, RAPIER, { x: 15.5, z: 2.5, size: 0.6, seed: 3 });
+    addToyBlock(scene, world, RAPIER, { x: -15.5, z: -2.2, size: 0.5, rotY: 0.6, seed: 7 });
 
-    // Gångskyltar över varje gång, i båda ändar
-    for (const [x, n] of [[-22, '11'], [-10, '12'], [0, '13'], [10, '14']]) {
-      addAisleSign(scene, { x, z: 17, text: n });
-      addAisleSign(scene, { x, z: -17, text: n });
-    }
+    // Starten: gaffeltruck med en lastad pall i luften, pallstaplar och kartonger
+    addForklift(B, world, RAPIER, { x: 30.6, z: 3.2, rot: -Math.PI / 2, forkH: 1.15, load: true, seed: 5 });
+    addPalletB(B, world, RAPIER, { x: 30.4, z: 7.2, rotY: 0.04, count: 8, seed: 11 });
+    addPalletB(B, world, RAPIER, { x: 31.9, z: 7.0, rotY: -0.06, count: 5, seed: 12 });
+    addLoadedPalletB(B, world, RAPIER, { x: 30.3, z: -0.9, rotY: 0.05, layers: 3, seed: 13 });
+    addLoadedPalletB(B, world, RAPIER, { x: 31.7, z: -1.3, rotY: -0.1, layers: 2, seed: 14 });
+    addBoxStackB(B, world, RAPIER, { x: 33.6, z: 2, cols: 2, rows: 3, layers: 3, seed: 15 });
 
-    // Blockstaplade pallar mellan huvudgången och svängen runt rad A
-    let k = 0;
-    for (let x = -8.6; x <= 0.6; x += 1.3) addLoadedPalletB(B, world, RAPIER, { x, z: -22.6, rotY: (k % 3) * 0.02, layers: 1 + (k++ % 3), seed: seed++ });
-    // Lastkajen i öster: travar av tomma pallar, lastade pallar och en truck
-    for (const [x, z, n] of [[20, -18, 6], [21.5, -18.2, 9], [20.2, 12, 4], [24, 4, 7]]) addPalletB(B, world, RAPIER, { x, z, count: n, seed: seed++ });
-    for (const [x, z, l] of [[20, -8, 3], [21.3, -8.2, 2], [20.1, -2, 2], [24.5, -12, 3], [24.4, 16, 2]]) addLoadedPalletB(B, world, RAPIER, { x, z, rotY: 0.04, layers: l, seed: seed++ });
-    addForklift(B, world, RAPIER, { x: 22.5, z: 6.5, rot: Math.PI, forkH: 0.6, load: true, seed: 8 });
-    addBoxStackB(B, world, RAPIER, { x: 26, z: -24, cols: 3, rows: 2, layers: 3, seed: seed++ });
-    // Söder om huvudgången: kartonger vid väggen
-    for (const [x, z, c, l] of [[-20, -30, 3, 3], [-8, -30.2, 2, 2], [4, -30, 4, 3], [16, -30.1, 2, 4]]) addBoxStackB(B, world, RAPIER, { x, z, cols: c, rows: 2, layers: l, seed: seed++ });
-
-    // Genomfarten: truckföraren har just lyft ut pallen ur facket och står
-    // med den uppe i gång 13. Bilarna kör in under den.
-    addForklift(B, world, RAPIER, { x: 2.75, z: PASS.z + 2.15, rot: Math.PI, forkH: 1.0, load: true, seed: 9 });
-
-    // Körbryggan i gång 11 och landningen på plywood efter glappet
-    const at = (x, z) => track.nearest(x, z).index;
-    addYardRamp(B, track, at(-22, 8.6), at(-22, 0.55));
-    addLandingDeck(B, track, at(-22, -0.75), at(-22, -8.8));
-
-    // Kartongen i gång 12 och påkörningsskydd på andra sidan där kanten är öppen
-    addOpenCarton(B, world, RAPIER, { x: CART.x, z: CART.z, len: CART.len, seed: 4 });
-    const edges = [
-      ...edgeSegments(track, [-10, -2.5], [-10, 0.9], { side: 1, offset: track.roadHalf + 0.06 }),
-      ...edgeSegments(track, [-10, 4.9], [-10, 8.9], { side: 1, offset: track.roadHalf + 0.06 }),
-    ];
-    edgeColliders(world, RAPIER, edges, { h: 0.34, thick: 0.14 });
+    // Tunneln genom pallstället på vänster raka och kanterna utan vallar
+    addRackTunnel(B, world, RAPIER, { ax: -C, az: 15.5, bx: -C, bz: 8, clear: 1.95, seed: 3 });
+    const edges = buildEdges({ world, RAPIER, track });
     addGuardRail(B, edges);
 
-    // Golvmärkning: gula linjer längs ställen och övergångsställen i huvudgången
-    const lines = [];
-    for (const R of Object.values(ROWS)) {
-      for (const s of [-1, 1]) lines.push({ points: [[R.x + s * 2.45, R.z0 + 0.3], [R.x + s * 2.45, R.z1 - 0.3]], color: 'yellow', width: 0.1 });
+    // Hoppet på vänsterrakan: körbrygga upp till kanten, plywood på pallar efter glappet
+    {
+      const at = (x, z) => track.nearest(x, z).index;
+      const lip = at(-C, -1.45), land = at(-C, -2.75);
+      addYardRamp(B, track, at(-C, 6.6), lip);
+      addLandingDeck(B, track, land, at(-C, -10.8));
     }
-    lines.push({ points: [[-27.2, -22], [-27.2, 20]], color: 'yellow', width: 0.1 });
-    for (const x of [-15, -5, 5]) {
-      for (let j = 0; j < 6; j++) lines.push({ points: [[x - 1.2 + j * 0.48, -24.2], [x - 1.2 + j * 0.48, -27.8]], color: 'white', width: 0.24 });
+    // Kartongen bredvid diagonalen, längs med vägen
+    { const [x, z] = diag(BOX.t, BOX.off); addOpenCarton(B, world, RAPIER, { x, z, rot: -Math.PI / 4, len: BOX.len, seed: 4 }); }
+
+    // Genvägen: lastade pallar längs gränden, plankrampen på pallar och
+    // trucken som ställde dit den
+    const sc = track.shortcuts[0]?.path;
+    const lines = [{ points: [[-8, 22], [8, 22]], color: 'white', dash: [0.6, 0.4] }];
+    if (sc) {
+      const nearMain = (x, z, m) => Math.sqrt(track.nearest(x, z).d2) < track.roadHalf + m;
+      let kick0 = -1, kick1 = -1;
+      for (let i = 0; i < sc.N - 1; i++) {
+        if (!sc.isGap[i] && sc.pts[i].y > 0.005 && kick0 < 0) kick0 = Math.max(0, i - 1);
+        if (!sc.isGap[i] && sc.isGap[i + 1] && sc.pts[i].y > 0.1) kick1 = i;
+      }
+      if (kick0 >= 0 && kick1 > kick0) addPlankRamp(B, sc, kick0, kick1);
+      const step = Math.round(2.3 / sc.spacing);
+      let k = 0;
+      for (let i = 4; i < sc.N - 4; i += step) {
+        const after = i > kick1 + 2; // efter hoppet: golv, pallarna längre ut
+        if (sc.isGap[i] && !after) continue;
+        for (const side of [1, -1]) {
+          if (i > kick0 - 2 && i < kick1 + 3 && side < 0) continue; // trucken står där
+          const pose = sc.poseAt(i, side * (sc.roadHalf + (after ? 2.4 : 0.8)));
+          if (nearMain(pose.x, pose.z, after ? 2.6 : 1.6) || Math.hypot(pose.x + 14, pose.z) < 1.6 || Math.hypot(pose.x + 15.5, pose.z + 2.2) < 1.3) continue;
+          addLoadedPalletB(B, world, RAPIER, { x: pose.x, z: pose.z, rotY: pose.heading + (k % 3) * 0.05, layers: 1 + ((k * 5) % 3), seed: 40 + k });
+          k++;
+        }
+      }
+      if (kick1 > 0) {
+        const f = sc.poseAt(kick0 + 2, -(sc.roadHalf + 2.4));
+        addForklift(B, world, RAPIER, { x: f.x, z: f.z, rot: f.heading + Math.PI / 2, forkH: 0.06, seed: 6 });
+      }
+      // Målade körfältslinjer där genvägen bara är golv
+      for (const side of [1, -1]) {
+        for (const [i0, i1] of [[0, kick0], [kick1 + 3, sc.N - 2]]) {
+          const pts = [];
+          for (let i = i0; i <= i1; i += 3) { if (!sc.isGap[i]) continue; const p = sc.poseAt(i, side * sc.roadHalf); if (!nearMain(p.x, p.z, 0.1)) pts.push([p.x, p.z]); }
+          if (pts.length > 1) lines.push({ points: pts, color: 'yellow', width: 0.1, dash: [0.5, 0.35] });
+        }
+      }
     }
     if (scene) addFloorLines(scene, { lines });
     B?.flush(scene);
 
-    // Lösa kartonger vid gångarnas kanter som bilarna kan putta på
+    // Lösa saker nära banan som bilarna kan putta på
     const loose = [];
-    for (const [x, z, s] of [[12.6, -12, 0.24], [12.4, -11.6, 0.2], [-2.7, -4, 0.22], [-7.6, 12, 0.24], [-19.4, -14, 0.22], [7.6, -16, 0.2]]) {
+    for (const [x, z, s] of [[28.2, -6, 0.22], [28.4, -5.6, 0.2], [-28.6, 5, 0.24], [-23, -26.5, 0.22], [23.5, 26.8, 0.2]]) {
       loose.push(addLooseBox(scene, world, RAPIER, { x, z, size: s, seed: seed++ }));
     }
+    loose.push(addBeachBall(scene, world, RAPIER, { x: 4, z: -20, r: 0.3 }));
+    loose.push(addBeachBall(scene, world, RAPIER, { x: -5, z: 21, r: 0.25 }));
     return loose.filter((p) => p && p.body);
   },
-  props: [],
+  props: [
+    { kind: 'block', cp: 4, lateral: -1.3, color: 0xe53935 },
+    { kind: 'block', cp: 14, lateral: 1.3, color: 0x1e88e5 },
+    { kind: 'ball', cp: 12, lateral: -0.6, color: 0xfdd835 },
+    { kind: 'can', cp: 4, lateral: 0.7, color: 0x43a047 },
+    { kind: 'cone', cp: 14, lateral: -0.9, color: 0xff7043 },
+    // Saker att köra rakt igenom, på diagonalen under bron (banans enda plana raka)
+    { kind: 'bigball', at: 0.3, lateral: 1.2, color: 0x2f9be8, roll: { period: 6, speed: 3 } },
+    ...cartonWall(0.26, { lateral: 0.95, across: 4, layers: 2 }),
+  ],
 };
+
+// Kanter där banan saknar vallar: pallställets sparklister i tunneln och
+// påkörningsskydd runt hörnet där genvägen kommer in.
+function buildEdges({ world, RAPIER, track }) {
+  const segs = [
+    ...edgeSegments(track, [-C, 16.2], [-C, 7.2]),
+    // Räcket på ytterkanten genom hörnet: något innanför vallarnas linje och
+    // en bit in över vallens början, så att ingen ände sticker ut att haka i
+    ...edgeSegments(track, [-C, -8.2], [-15.9, -15.9], { side: 1, offset: track.roadHalf + 0.06 }),
+    // Andra sidan av diagonalen där kantstenen är öppnad mot kartongen
+    ...edgeSegments(track, diag(BOX.out[0] - 0.3), diag(BOX.out[1] + 0.3), { side: -1, offset: track.roadHalf + 0.06 }),
+    ...edgeSegments(track, diag(BOX.in[0] - 0.3), diag(BOX.in[1] + 0.3), { side: -1, offset: track.roadHalf + 0.06 }),
+  ];
+  edgeColliders(world, RAPIER, segs, { h: 0.34, thick: 0.14 }); // lika hög som räcket syns
+  return segs;
+}
