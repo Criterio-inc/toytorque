@@ -533,7 +533,7 @@ if (!only || only === 'vapen') {
 
 // 11. Genväg: en datorförare som alltid tar nivåns genväg ska gå i mål
 // snabbare än utan genvägen, utan att missa checkpoints eller fastna
-for (const level of [lagret, spokstaden, tradgarden, kryssaren, leksaksaffaren, museet]) {
+for (const level of [lagret, spokstaden, kryssaren, leksaksaffaren, museet]) {
   if (only) break;
   const own = level.track.shortcuts || [];
   const without = { ...level, track: { ...level.track, shortcuts: [] } };
