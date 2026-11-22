@@ -15,7 +15,7 @@ import { TrackEditor } from '../editor/editor.js';
 
 const CLASSES = ['Rookie', 'Amateur', 'Advanced', 'Semi-Pro', 'Pro'];
 const BLURB = {
-  lagret: 'Leksakslagret. En åtta med bro över korsningen, hopp från en körbrygga på långsidan och en tom kartong att köra igenom.',
+  lagret: 'Leksakslagret. Långa gångar mellan sex meter höga pallställ, ett hopp från en körbrygga, en tom kartong att köra igenom och en genväg genom ett tomt fack under truckens pall.',
   kitchen: 'Köket. Ett stort kök med matsal i riktig skala: längs bänkskåpen förbi spisen och kylen, hopp över kokböckerna, runt köksön med barstolarna och rakt in under matbordet mellan stolsbenen. Den som vågar tar luckan i köksdörren och en sväng över altanen.',
   spokstaden: 'Spökstaden. Västerngatan, gruvtunneln och plankhoppet över bäcken.',
   kryssaren: 'Kryssaren. Kappkörning på däck, upp till soldäcket och genom promenaden.',

@@ -51,6 +51,7 @@ export class AiDriver {
     // Genvägar: bestäm en gång per passage om vi tar den, följ den sedan
     // till påfarten och fortsätt därifrån på huvudbanan.
     let P = T; // vägen vi följer just nu
+    let scBrake = Infinity;
     if (!this.sc) {
       for (const sc of T.shortcuts || []) {
         const before = (sc.A - near.index + N) % N;
@@ -67,6 +68,10 @@ export class AiDriver {
       const atA = (this.sc.A - near.index + N) % N;
       if (this.scIndex <= 0 && atA > 2 && atA < N / 2) {
         P = T;
+        // Bromsa redan på huvudbanan om genvägen börjar med en tvär sväng
+        for (let k = 0; k < path.N - 1 && k * T.spacing < 10; k++) {
+          scBrake = Math.min(scBrake, Math.sqrt(path.lineSpeed[k] ** 2 + 2 * 9 * (atA + k) * T.spacing));
+        }
       } else if (pn.index >= path.N - 1 - Math.round(2 / T.spacing)) {
         this.index = this.sc.B;
         this.sc = null;
@@ -138,7 +143,7 @@ export class AiDriver {
     const driveScale = vehicle.def.drive === 'RWD' ? 0.9 : 1; // bakhjulsdrivna sladdar ut lättare
     const rubber = 1 + Math.max(-0.06, Math.min(0.06, this.catchup * 0.06));
     let vTarget = Math.min(vehicle.def.topSpeed * vehicle.mods.topMul, P.lineSpeed[look] * gripScale * driveScale * this.skill * rubber);
-    vTarget = Math.min(vTarget, followSpeed);
+    vTarget = Math.min(vTarget, followSpeed, scBrake * gripScale * this.skill);
 
     let throttle = 1;
     if (speed > vTarget + 0.8) throttle = -1;

@@ -590,12 +590,12 @@ if (!only || only === 'genvag') {
     }
     return { done: race.state === 'finished', time: race.time, took, resets, cps: T.checkpoints.length };
   };
-  for (const [level, names] of [[kvarteret, ['grusgången', 'garaget']], [supermarket, ['hyllorna']]]) {
+  for (const [level, names] of [[kvarteret, ['grusgången', 'garaget']], [supermarket, ['hyllorna']], [lagret, ['facket']]]) {
     const base = runSc(withChance(level, -1));
     names.forEach((name, k) => {
       const r = runSc(withChance(level, k));
       check(`Genväg ${level.name} ${name}`, base.done && r.done && r.took >= 2 && r.time < base.time && r.resets === 0,
-        `utan ${base.time.toFixed(1)} s, med genväg ${r.time.toFixed(1)} s, tog genvägen ${r.took} ggr, återsättningar ${r.resets}, checkpoints ${r.cps}`);
+        `utan ${base.time.toFixed(1)} s (${base.resets} återsättn.), med genväg ${r.time.toFixed(1)} s, tog genvägen ${r.took} ggr, återsättningar ${r.resets}, checkpoints ${r.cps}`);
     });
   }
 }
@@ -1019,24 +1019,38 @@ if (!only || only === 'sidovagar') {
       `utan styrning ${stays ? 'kvar på vägen' : 'FEL: lämnar vägen'}, genom luckan ${through ? 'efter ' + flapT.toFixed(1) + ' s' : 'FEL'}, altanen ${w}/${wps.length} punkter, mållinjen ${lineOnDeck ? 'räknas' : 'FEL'}, kontrollpunkt ${b.racer.nextCp} efter ${t.toFixed(0)} s`);
   }
 
-  // Lagret: ett tryck åt vänster på diagonalen under bron, så siktar körhjälpen
-  // ut genom öppningen och in i kartongen. Efter den tillbaka upp på vägen.
+  // Lagret: ett tryck åt höger norrut i gång 12, så siktar körhjälpen ut
+  // genom öppningen, genom den tomma kartongen och tillbaka in på vägen.
   {
-    const from = { x: -4, z: 4, heading: -Math.PI / 4 };
-    const tOf = (p) => (p.z - p.x) / 2, offOf = (p) => (p.x + p.z) * Math.SQRT1_2;
+    const from = { x: -10, z: -12, heading: 0 };
     const a = setup(lagret, from);
     for (let t = 0; t < 2.5; t += STEP) a.step({ throttle: 1, steer: 0 });
-    const stays = Math.abs(offOf(a.car.position)) < 1.2;
+    const stays = Math.abs(a.car.position.x + 10) < 1.2 && a.car.position.z > -4;
     const b = setup(lagret, from);
     let inside = false, back = false, t = 0;
     for (; t < 10 && !back; t += STEP) {
-      const p = b.car.position, tt = tOf(p), off = offOf(p);
-      if (tt > 14.6 && tt < 15.8 && off > 3.0 && off < 3.8) inside = true;
-      if (inside && tt > 19.5 && Math.abs(off) < 1.3) back = true;
-      b.step({ throttle: 1, steer: tt > 6 && tt < 6.8 ? 1 : inside && tt > 16.8 && off > 0.6 ? -0.7 : 0 });
+      const p = b.car.position;
+      if (p.x < -12.2 && p.x > -13.4 && p.z > 2.4 && p.z < 3.6) inside = true;
+      if (inside && p.z > 10 && Math.abs(p.x + 10) < 1.3) back = true;
+      b.step({ throttle: 1, steer: p.z > -5.5 && p.z < -3.5 ? -1 : 0 });
     }
     check('Lagret: kartongen', stays && inside && back && b.racer.stuckTime < 1,
-      `utan styrning ${stays ? 'kvar på vägen' : 'FEL: lämnar vägen'}, genom kartongen ${inside ? 'ja' : 'FEL'}, tillbaka på vägen ${back ? 'efter ' + t.toFixed(1) + ' s' : 'FEL'}`);
+      `utan styrning ${stays ? 'kvar på vägen' : 'FEL: lämnar vägen'}, genom kartongen ${inside ? 'ja' : 'FEL'}, tillbaka på vägen ${back ? 'efter ' + t.toFixed(1) + ' s' : 'FEL vid ' + b.car.position.x.toFixed(1) + ',' + b.car.position.z.toFixed(1)}`);
+  }
+
+  // Lagret: genvägen genom det tomma facket och under gaffeltruckens pall
+  {
+    const c = setup(lagret, { x: 10, z: -1, heading: 0 });
+    const wps = [[10, 4.6], [9.0, 6.8], [6.8, 9.6], [4, 9.9], [2.6, 9.2], [0.6, 6.2]];
+    let w = 0, t = 0, under = false;
+    for (; t < 8 && w < wps.length; t += STEP) {
+      const p = c.car.position;
+      if (Math.hypot(wps[w][0] - p.x, wps[w][1] - p.z) < 0.8) { w++; continue; }
+      if (Math.abs(p.x - 2.6) < 0.5 && Math.abs(p.z - 9.1) < 0.9) under = true;
+      c.step({ throttle: 0.7, steer: c.toward(wps[w][0], wps[w][1]) }, 0.4);
+    }
+    check('Lagret: genvägen under trucken', w === wps.length && under && c.car.upY > 0.9,
+      `${w}/${wps.length} punkter efter ${t.toFixed(1)} s, under pallen ${under ? 'ja' : 'FEL'}, slut vid ${c.car.position.x.toFixed(1)},${c.car.position.z.toFixed(1)}`);
   }
 
   // Kvarteret: rakt genom avloppsröret på byggplatsen utan att fastna

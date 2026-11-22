@@ -110,7 +110,7 @@ export function buildTrackData(spec) {
   const shortcutSpecs = (spec.shortcuts || []).map((sc) => {
     const near = (k) => { let b = 0, bd = Infinity; for (let i = 0; i < N; i++) { const d = (flat[i].x - k[0] * s) ** 2 + (flat[i].z - k[1] * s) ** 2; if (d < bd) { bd = d; b = i; } } return b; };
     const A = near(sc.from), B = near(sc.to);
-    const w = Math.round((roadHalf * 2.4) / spacing);
+    const w = Math.round(Math.max(roadHalf * 2.4, sc.merge ?? 0) / spacing);
     for (const c of [A, B]) for (let k = -w; k <= w; k++) isOpen[(c + k + N) % N] = true;
     return { sc, A, B };
   });
@@ -261,7 +261,8 @@ function buildShortcut(main, sc, A, B, s) {
   const ranges = (sc.gaps || []).map((g) => [fracAt(g.from), fracAt(g.to)]);
   const pts = flat.map((p, i) => ({ x: p.x, y: heightAt(frac(i)), z: p.z }));
   const isGap = pts.map((_, i) => i === N - 1 || ranges.some(([a, b]) => frac(i) >= a && frac(i) <= b));
-  const merge = Math.round((roadHalf * 2.4) / spacing);
+  // Utan kanter närmast huvudbanan; en sned påfart behöver längre öppen bit (sc.merge, meter)
+  const merge = Math.round((sc.merge ?? roadHalf * 2.4) / spacing);
   const isOpen = pts.map((_, i) => i <= merge || i >= N - 1 - merge);
   const bank = new Float32Array(N), tanB = new Float32Array(N); // genvägar doseras inte
   const tangents = [], normals = [];

@@ -19,7 +19,9 @@ export class Ghost {
     this.key = keyFor(game.levelDef.id, game.carId);
     this.rec = [];
     this.recT = 0;
-    this.best = load(this.key); // { time, frames: [[x,y,z,qx,qy,qz,qw,steer], ...] }
+    // En ombyggd bana har högre layout: spöken från den gamla dragningen kör genom väggarna
+    this.layout = game.levelDef.layout ?? 1;
+    this.best = load(this.key, this.layout); // { time, layout, frames: [[x,y,z,qx,qy,qz,qw,steer], ...] }
     this.lapStart = 0;
     this.racer = game.racer;
     this.lastLap = this.racer.lap;
@@ -55,7 +57,7 @@ export class Ghost {
       // Ett varv klart: spara om det var bästa
       const t = r.lastLap;
       if (t != null && (!this.best || t < this.best.time) && this.rec.length > 10) {
-        this.best = { time: t, rate: RATE, frames: this.rec };
+        this.best = { time: t, rate: RATE, layout: this.layout, frames: this.rec };
         save(this.key, this.best);
       }
       this.lastLap = r.lap;
@@ -112,12 +114,13 @@ function makeFakeVehicle(real) {
 }
 
 // Läs ett sparat spöke; trasig eller okänd data ger null
-function load(key) {
+function load(key, layout = 1) {
   let d = null;
   try { const s = localStorage.getItem(key); d = s ? JSON.parse(s) : null; } catch { return null; }
   const num = (n) => typeof n === 'number' && Number.isFinite(n);
   if (!d || !num(d.time) || d.time <= 0 || !Array.isArray(d.frames) || d.frames.length < 2) return null;
   if (d.rate != null && !(num(d.rate) && d.rate > 0)) return null;
+  if ((d.layout ?? 1) !== layout) return null;
   if (!d.frames.every((f) => Array.isArray(f) && f.length >= 8 && f.every(num))) return null;
   touchGhost(key);
   return d;
