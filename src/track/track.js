@@ -17,6 +17,8 @@ import { G, groups, GRAVITY } from '../core/physics.js';
 //   freeRoam    true               öppen bana: inga kantvallar, bilarna får lämna vägen
 //   closed      [[a0, a1], ...]    sträckor på en öppen bana som ändå har kantvallar (doserade kurvor)
 //   checkpointHalf  meter          halva bredden på kontrollpunkterna (öppna banor har breda)
+//   embank      [{from, to, slope?}]  upphöjda sträckor med sluttande vallar i stället för
+//                                  lodräta sidor (sandbankar på öppna banor), slope = meter ut per meter höjd
 //   sideExits   [{zone, from, aim | line: [[x, z], ...], side, speed}]  avfart mot något vid sidan av vägen (en lucka, ett rör):
 //                                  styr spelaren ditåt inne i zonen siktar körhjälpen på aim
 //   bank        [{at, deg, len?, fade?}]  doserad kurva: hela kurvan som
@@ -105,6 +107,8 @@ export function buildTrackData(spec) {
   }
   const isGap = pts.map((_, i) => inRanges(frac(i), spec.gaps));
   const isOpen = pts.map((_, i) => (!!spec.freeRoam && !inRanges(frac(i), spec.closed)) || inRanges(frac(i), spec.openings));
+  const embank = new Float32Array(pts.length);
+  for (const e of spec.embank || []) { const r = rangeOf(e); for (let i = 0; i < pts.length; i++) if (inRanges(frac(i), [r])) embank[i] = e.slope ?? 3; }
 
   // Genvägar: avfart och påfart på huvudbanan (öppningar i vallarna där)
   const shortcutSpecs = (spec.shortcuts || []).map((sc) => {
@@ -155,7 +159,7 @@ export function buildTrackData(spec) {
   checkpoints.sort((a, b) => a.index - b.index);
 
   const data = {
-    pts, tangents, normals, dist, length, N, roadHalf, spacing, checkpoints, isGap, isOpen, bank, tanB, freeRoam: !!spec.freeRoam,
+    pts, tangents, normals, dist, length, N, roadHalf, spacing, checkpoints, isGap, isOpen, bank, tanB, freeRoam: !!spec.freeRoam, embank,
     sideExits: spec.sideExits || [],
     startHeading: Math.atan2(tangents[0].x, tangents[0].z),
     barrier: { height: spec.barrierHeight ?? 0.22, thick: spec.barrierThick ?? 0.12 },
@@ -556,6 +560,9 @@ function physicsFor(world, RAPIER, data, body) {
       body
     );
   }
+  if (sides.eIdx.length) {
+    world.createCollider(RAPIER.ColliderDesc.trimesh(sides.ePos, sides.eIdx).setFriction(0.9).setCollisionGroups(groups(G.WORLD)), body);
+  }
   // Kantvallar som lådor längs kanten, lutade med vägen
   const { height, thick } = data.barrier;
   const off = data.roadHalf + thick / 2;
@@ -682,6 +689,15 @@ function meshFor(data, theme, group, roadMat) {
     m.castShadow = m.receiveShadow = true;
     group.add(m);
   }
+  if (sides.eIdx.length) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(sides.ePos, 3));
+    g.setIndex(Array.from(sides.eIdx));
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: theme.embank ?? theme.side ?? 0x8a6a48, roughness: 0.95, side: THREE.DoubleSide }));
+    m.receiveShadow = true;
+    group.add(m);
+  }
 
   // Kantvallar: en sammanslagen geometri med röd/vita fält
   const { height, thick } = data.barrier;
@@ -768,17 +784,28 @@ function roadGeometry(data, withUv = false) {
 // plus en front vid varje glapp.
 function sideGeometry(data) {
   const { pts, normals, N, roadHalf, isGap } = data;
-  const pos = [], idx = [];
+  const pos = [], idx = [], ePos = [], eIdx = [];
   const high = (i) => pts[i % N].y > 0.03 && !isGap[i % N];
-  const quad = (a, b, c, d) => {
-    const base = pos.length / 3;
-    pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, d.x, d.y, d.z);
-    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  const put = (P, I) => (a, b, c, d) => {
+    const base = P.length / 3;
+    P.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, d.x, d.y, d.z);
+    I.push(base, base + 1, base + 2, base, base + 2, base + 3);
   };
+  const quad = put(pos, idx), equad = put(ePos, eIdx);
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N;
     if (!high(i) || !high(j)) continue;
     const over = overRoad(data, i);
+    const slope = data.embank ? Math.max(data.embank[i], data.embank[j]) : 0;
+    if (slope && !over) {
+      // Sluttande vall ner till marken, lika körbar som vägen
+      for (const side of [1, -1]) {
+        const a = edge3(data, i, roadHalf * side), b = edge3(data, j, roadHalf * side);
+        const out = (e, k) => { const n = normals[k % N], w = Math.max(0, e.y) * slope * side; return { x: e.x + n.x * w, y: 0, z: e.z + n.z * w }; };
+        equad(a, b, out(b, j), out(a, i));
+      }
+      continue;
+    }
     for (const side of [1, -1]) {
       const a = edge3(data, i, roadHalf * side), b = edge3(data, j, roadHalf * side);
       const ya = over ? a.y - 0.08 : 0, yb = over ? b.y - 0.08 : 0;
@@ -798,7 +825,7 @@ function sideGeometry(data) {
     const L = edge3(data, edgeAt, roadHalf), R = edge3(data, edgeAt, -roadHalf);
     quad(L, R, { ...R, y: 0 }, { ...L, y: 0 });
   }
-  return { pos: new Float32Array(pos), idx: new Uint32Array(idx) };
+  return { pos: new Float32Array(pos), idx: new Uint32Array(idx), ePos: new Float32Array(ePos), eIdx: new Uint32Array(eIdx) };
 }
 
 // Vallsegment var tredje punkt, utom i glapp och öppningar. Exporteras så att
@@ -823,7 +850,7 @@ function pillars(data) {
   const out = [];
   const every = Math.round(3 / data.spacing);
   for (let i = 0; i < N; i += every) {
-    if (pts[i].y < 0.25 || isGap[i]) continue;
+    if (pts[i].y < 0.25 || isGap[i] || data.embank?.[i]) continue; // en sandvall bär vägen själv
     for (const side of [1, -1]) {
       const { x, y: h, z } = edge3(data, i, (roadHalf - 0.1) * side);
       let blocked = false;

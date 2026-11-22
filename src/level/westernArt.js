@@ -771,7 +771,9 @@ export function addTrackDirt(scene, track) {
   const high = (i) => pts[i % N].y >= 0.02 && !isGap[i % N];
   for (let i = 0; i <= N; i++) {
     const p = pts[i % N], nn = normals[i % N], v = (dist[i] ?? track.length);
-    dPos.push(p.x + nn.x * half, p.y + 0.012 + bankY(track, i, half), p.z + nn.z * half, p.x - nn.x * half, p.y + 0.012 - bankY(track, i, half), p.z - nn.z * half);
+    // På en sandvall sluttar marken direkt utanför vägen: ingen bred jordkant som svävar
+    const hw = track.embank?.[i % N] && p.y > 0.02 ? roadHalf + 0.04 : half;
+    dPos.push(p.x + nn.x * hw, p.y + 0.012 + bankY(track, i, hw), p.z + nn.z * hw, p.x - nn.x * hw, p.y + 0.012 - bankY(track, i, hw), p.z - nn.z * hw);
     dUv.push(0, v / 6, 1, v / 6);
     pPos.push(p.x + nn.x * roadHalf, p.y + 0.014 + bankY(track, i, roadHalf), p.z + nn.z * roadHalf, p.x - nn.x * roadHalf, p.y + 0.014 - bankY(track, i, roadHalf), p.z - nn.z * roadHalf);
     pUv.push(v / 2, 0, v / 2, (roadHalf * 2) / 2);
