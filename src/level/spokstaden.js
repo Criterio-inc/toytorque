@@ -19,6 +19,7 @@ const BACK = 21; // bakre rakans z
 export const spokstaden = {
   id: 'spokstaden',
   name: 'Spökstaden',
+  layout: 2, // öppen bana sedan 2026-11-22: äldre spökbilar gäller inte
   laps: 3,
   sky: 0xe0bc92,
   skyGradient: [0x86aed4, 0xe6c49a, 0xd8ab7c],
@@ -36,7 +37,7 @@ export const spokstaden = {
 
   trackTheme: {
     road: '#a8835a', roadRough: 0.97, side: '#6e4c2e', pillar: '#5a3d24',
-    barrierA: '#6b4528', barrierB: '#98703f',
+    barrierA: '#6b4528', barrierB: '#98703f', embank: '#c2965f',
   },
 
   track: {
@@ -75,13 +76,13 @@ export const spokstaden = {
     gaps: [{ from: [23.5, BACK], to: [22.3, BACK] }],
     // Den doserade kurvan i S:et: en vall av packad sand
     bank: [{ at: [-14, 10], deg: 14, fade: 8 }],
-    // Huvudgatan saknar kantvallar, liksom av- och påfarten till genvägen
-    // (där står staket och höbalar i stället).
-    openings: [
-      { from: [-32, ST], to: [30, ST] },
-      { from: [42.6, -10], to: [43.5, 6] },
-      { from: [19.5, BACK], to: [0, 18.6] },
-    ],
+    // Öppen bana: inga kantvallar. Kanterna är öknens egna, husen och
+    // trottoarerna på huvudgatan, stenrösen och kaktusar ytterst i kurvorna,
+    // bäckfåran och berget vid gruvan.
+    freeRoam: true,
+    checkpointHalf: 9,
+    // Sandkullen och den doserade kurvan är vallar av packad sand med sluttande sidor
+    embank: [{ from: [1.5, 18.6], to: [-29, 15.6], slope: 3 }],
     // Genvägen genom ladan: av den östra rakan, in genom ladans portar och ut
     // på baksidan, över bäckfåran på en plankramp och upp på bakre rakan efter
     // hoppet. Raka bitar närmast huvudbanan är bara sand (glapp i genvägens
@@ -169,6 +170,27 @@ export const spokstaden = {
     const r = rng(77);
     const clearOfTrack = (x, z, m) => track.nearest(x, z).d2 > (track.roadHalf + m) ** 2;
     const inTown = (x, z) => x > -42 && x < 48 && z > ST - 17 && z < ST + 15;
+    // Naturliga kanter ytterst i kurvorna: stenrösen med en och annan kaktus,
+    // där en bil som tar kurvan för fort åker ut i öknen
+    {
+      const re = rng(31), { N, pts, normals, tangents, spacing, roadHalf } = track;
+      const span = Math.round(3 / spacing), every = Math.round(2.1 / spacing);
+      for (let i = 0; i < N; i += every) {
+        const a = tangents[(i - span + N) % N], b = tangents[(i + span) % N];
+        const turn = a.x * b.z - a.z * b.x; // + = högersväng sett ovanifrån med +x vänster
+        const ang = Math.asin(Math.max(-1, Math.min(1, turn)));
+        if (Math.abs(ang) / (2 * span * spacing) < 1 / 14 || pts[i].y > 0.05) continue;
+        const side = ang > 0 ? 1 : -1; // ytterkurvan
+        for (let row = 0; row < 2; row++) {
+          const off = roadHalf + 3.4 + row * 1.6 + re() * 1.2;
+          const x = pts[i].x + normals[i].x * off * side, z = pts[i].z + normals[i].z * off * side;
+          if (inTown(x, z) || !clearOfTrack(x, z, 2.8) || (track.shortcuts[0] && track.shortcuts[0].path.nearest(x, z).d2 < 9)) continue;
+          if (row === 1 && re() < 0.3) addCactus(B, world, RAPIER, { x, z, kind: re() < 0.5 ? 'saguaro' : 'barrel', seed: i, h: 1.8 + re() * 1.6 });
+          else addRock(B, world, RAPIER, { x, z, size: 0.65 + re() * 0.8, seed: 300 + i * 3 + row });
+          if (re() < 0.6) addScrub(B, { x: x + (re() - 0.5) * 1.5, z: z + (re() - 0.5) * 1.5, size: 0.3 + re() * 0.3, seed: i + row });
+        }
+      }
+    }
     const freeSpot = (x, z, m) => clearOfTrack(x, z, m) && !inTown(x, z) && !(x > -40 && x < 38 && z > -2 && z < 15);
     let n = 0;
     for (let k = 0; k < 400 && n < 46; k++) {

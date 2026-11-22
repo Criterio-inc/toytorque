@@ -1936,7 +1936,8 @@ export function fitShortcutOpenings(B, world, RAPIER, track, { margin = 0.45, ke
   }
   // Kantsten där vallen saknas, utom där den skulle ligga på den andra vägen
   const onSc = (x, z, skip) => scs.some((sc) => sc !== skip && dist(sc.path, x, z) < sc.path.roadHalf + 0.25);
-  for (const o of mainOpen) for (const s of [1, -1]) addTrackCurb(B, world, RAPIER, { track, i0: o.i0, i1: o.i1, side: s, ok: (x, z) => !onSc(x, z, null), ...look });
+  // På en öppen bana har huvudvägen inga vallar att ersätta
+  if (!track.freeRoam) for (const o of mainOpen) for (const s of [1, -1]) addTrackCurb(B, world, RAPIER, { track, i0: o.i0, i1: o.i1, side: s, ok: (x, z) => !onSc(x, z, null), ...look });
   for (const sc of scs) {
     const P = sc.path;
     for (const s of [1, -1]) addTrackCurb(B, world, RAPIER, { track: P, i0: 0, i1: P.N - 2, side: s, ...look, ok: (x, z) => {

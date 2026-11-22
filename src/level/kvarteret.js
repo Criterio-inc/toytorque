@@ -3,7 +3,7 @@ import {
   addHouse, addOpenGarage, addTree, addHedge, addPicketFence, addGardenWall, addLamp, addMailbox, addHydrant,
   addBin, addBarricade, addBrickStack, addCar, addSwingSet, addSlide, addSandbox, addIsland, addFarHouse,
   addFarTrees, addLooseBall, addPlankFence, addCone, addBoomGate, addBooth, addDigger, addDirtPatch,
-  addDirtPile, addTunnel, fitShortcutOpenings, VERGE, WALK, rng,
+  addDirtPile, addTunnel, addTrackCurb, fitShortcutOpenings, VERGE, WALK, rng,
 } from './hoodArt.js';
 import { cartonWall, canPyramid, coneRow } from './stacks.js';
 import { addSewerPipe } from './playground.js';
@@ -44,6 +44,7 @@ const rbv = (deg) => ({ x: RB.x + Math.cos((deg * Math.PI) / 180) * RB.r, z: RB.
 export const kvarteret = {
   id: 'kvarteret',
   name: 'Kvarteret',
+  layout: 2, // öppen bana sedan 2026-11-22: äldre spökbilar gäller inte
   laps: 3,
   sky: 0x9fcdf2,
   skyGradient: [0x2b78d4, 0xa9d5f4, 0xe4efe6],
@@ -111,12 +112,15 @@ export const kvarteret = {
     gaps: [{ from: [OAK, -10.5], to: [OAK, -9.3] }],
     // Hörnet West Street–Maple Street är en doserad plywoodvall
     bank: [{ at: [WEST, MAPLE], deg: 14, fade: 6 }],
-    // Tunneln och bakgatan: väggarna och plankstaketen är kanterna
-    openings: [{ from: [TUNNEL.x0, MAPLE], to: [TUNNEL.x1, MAPLE] }, { from: [-14.5, ALLEY], to: [-36, ALLEY] },
-      // Byggplatsens infart vid bommen och utfarten längre fram: där saknas kantsten
-      { from: [PIPE.in0, MAPLE], to: [PIPE.in1, MAPLE] }, { from: [PIPE.out0, MAPLE], to: [PIPE.out1, MAPLE] }],
-    // Kontrollpunkterna är breda nog för svängen in över byggplatsen
-    checkpointHalf: 7.5,
+    // Öppen bana: ingen kantsten som stoppar bilarna, bara en låg rundad
+    // kantsten (ritad) och gräsremsor, trottoarer och trädgårdar intill.
+    // Skaterampens hopp har kvar sina kanter, och den doserade hörnvallen
+    // sluttar ner mot marken.
+    freeRoam: true,
+    closed: [{ from: [OAK, -16], to: [OAK, -2] }],
+    embank: [{ from: [WEST, -27], to: [-30, MAPLE], slope: 2.5 }],
+    // Breda kontrollpunkter: den som genar över en gräsmatta räknas ändå
+    checkpointHalf: 9,
     shortcuts: [
       // Grusgången: av bakgatan, mellan plankstaketen och ut över en plankramp
       // på en uppfart till Maple Street
@@ -190,8 +194,6 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
 
   makeGround(scene, world, RAPIER, { size: 180 });
 
-  // Inspelningsvänliga checkpoints: hela gatan räknas (kantsten till kantsten)
-  for (const cp of track.checkpoints) cp.halfWidth = roadHalf + 0.6;
 
   // --- banans zoner --------------------------------------------------------
   const zoneOf = (p) => {
@@ -233,7 +235,7 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
 
   // --- linjer och övergångsställen ------------------------------------------
   const idx = (x, z) => track.nearest(x, z).index;
-  const crosswalks = [idx(-30, MAPLE), idx(OAK, -29), idx(32, ELM), idx(3, ELM), idx(WEST, -24)].filter((i) => track.pts[i].y < 0.01 && !track.isOpen[i]);
+  const crosswalks = [idx(-30, MAPLE), idx(OAK, -29), idx(32, ELM), idx(3, ELM), idx(WEST, -24)].filter((i) => track.pts[i].y < 0.01);
   const nearIdx = (i, list, span) => list.some((j) => { const d = Math.abs(i - j); return Math.min(d, track.N - d) < span; });
   const centre = (i) => {
     const p = track.pts[i];
@@ -289,6 +291,13 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
     if (Math.min(di, track.N - di) > 25 || Math.sqrt(nn.d2) < curbOut + VERGE) return false;
     if (zoneOf({ x, z }) !== 'street' || inSite(x, z) || inMound(x, z) || nearSc(x, z) < 0.6) return false;
     return !inRB(x, z, 1.2) && !armBand(x, z, 0.25 + VERGE + 0.2);
+  });
+
+  // Låg rundad kantsten längs gatorna: bara ritad, bilarna rullar upp på
+  // gräsremsan utan att studsa
+  for (const side of [1, -1]) addTrackCurb(B, null, RAPIER, {
+    track, i0: 0, i1: track.N - 1, side, h: 0.035, t: 0.25,
+    ok: (x, z) => zoneOf({ x, z }) === 'street' && track.pts[track.nearest(x, z).index].y < 0.01 && nearSc(x, z) > 0.3 && !inRB(x, z, 0.2),
   });
 
   // --- hus längs gatorna ------------------------------------------------------

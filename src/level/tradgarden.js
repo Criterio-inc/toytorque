@@ -1,19 +1,22 @@
 import {
   makeLawn, makeGravelPath, addStoneWalls, stairs, waterRims, makeWater, makePaving, addBridgeFacade,
   greenhouseBase, makeGreenhouse, addPlants, addHedges, addBenches, addLoosePot,
-  addPergola, addPlankKicker, addFlowerBed, addGardenTools, addSteppingStones,
+  addPergola, addGardenTools,
 } from './gardenArt.js';
-import { rng, edgeSegments } from './warehouseArt.js';
+import { rng } from './warehouseArt.js';
 
 // ---------------------------------------------------------------------------
 // Nivå: Trädgården. Botanisk trädgård under ett växthustak i riktig skala
-// (meter). Grusgång genom gräsmattor, krukor, palmer och häckar. Banan går
-// över en kanal på en stenbro och hoppar över en ränna på vänsterrakan.
+// (meter). En slingrig grusgång genom gräsmattor, krukor, palmer och häckar,
+// utan kantvallar: gången kantas av gräs, och i kurvorna står låga häckar.
+// Banan går över en kanal på en stenbro och hoppar över en ränna på
+// vänsterrakan.
 // ---------------------------------------------------------------------------
 
 export const tradgarden = {
   id: 'tradgarden',
   name: 'Trädgården',
+  layout: 2, // öppen bana med ny dragning sedan 2026-11-22: äldre spökbilar gäller inte
   laps: 3,
   sky: 0xbfe3ff,
   fog: { near: 45, far: 150, color: 0xd6ecf5 },
@@ -24,31 +27,37 @@ export const tradgarden = {
     scale: 1,
     roadHalf: 1.7,
     spacing: 0.6,
-    checkpoints: 22,
+    checkpoints: 24,
     barrierHeight: 0.16,
     barrierThick: 0.12,
     lineMargin: 0.8,
     start: { x: -14, z: -30 },
+    // Fler och tätare kurvor än förr: ett sicksack upp mot gräskullen, bron
+    // över kanalen, ett S runt palmerna i norr och hårnålen i gräsvallen
     corners: [
-      { x: 8, z: -30, r: 7 },
-      { x: 31, z: -14, r: 6 },
-      { x: 31, z: 30, r: 7 },
-      { x: 4, z: 30, r: 6 },
-      { x: -4, z: 12, r: 6 },
-      { x: -16, z: 22, r: 6 },
-      { x: -31, z: 18, r: 6 },
+      { x: 9, z: -30, r: 6 },
+      { x: 11, z: -16, r: 5.5 },
+      { x: 22, z: -28, r: 5.5 },
+      { x: 31, z: -12, r: 6 },
+      { x: 31, z: 27, r: 6 },
+      { x: 21, z: 33, r: 6 },
+      { x: 13, z: 20, r: 6 },
+      { x: 3, z: 32, r: 6 },
+      { x: -5, z: 13, r: 6 },
+      { x: -17, z: 26, r: 6 },
+      { x: -31, z: 21, r: 6 },
       { x: -31, z: -30, r: 7 },
     ],
     elevation: [
-      // Gräskullen på diagonalen mot östra kurvan: uppför, krön, nedför
-      { at: [11.5, -27.9], y: 0 },
-      { at: [16.5, -24.4], y: 0.6 },
-      { at: [21.5, -20.9], y: 0 },
+      // Gräskullen på diagonalen mot bron: uppför, krön, nedför
+      { at: [25.5, -25], y: 0 },
+      { at: [27.5, -21], y: 0.55 },
+      { at: [29.5, -17.5], y: 0 },
       // Stenbron över kanalen på högerrakan
-      { at: [31, -7], y: 0 },
+      { at: [31, -6], y: 0 },
       { at: [31, 2.5], y: 0.9 },
       { at: [31, 8.5], y: 0.9 },
-      { at: [31, 18], y: 0 },
+      { at: [31, 17], y: 0 },
       // Hoppet över rännan på vänsterrakan
       { at: [-31, 1], y: 0 },
       { at: [-31, -2], y: 0.08 },
@@ -59,32 +68,17 @@ export const tradgarden = {
     ],
     gaps: [{ from: [-31, -7.5], to: [-31, -8.7] }],
     airZones: [{ from: [-31, 0], to: [-31, -7.6] }], // det höga hoppet: bilarna hålls plana i luften
-    // Hårnålen i V:ets botten ligger i en sluttande gräsvall (doserad)
-    bank: [{ at: [-4, 12], deg: 15, fade: 6 }],
-    // Pergolan efter starten och genvägens av- och påfart saknar vallar:
-    // där står klippta buxbomshäckar i stället.
-    openings: [
-      { from: [-9.5, -30], to: [2.5, -30] },
-      { from: [10, 30], to: [1.2, 23.5] },
-      { from: [-14, 20.5], to: [-31, 11] },
-    ],
-    // Genvägen rakt över V:et: av norra rakan där banan svänger ner, över en
-    // plankramp och en blomsterrabatt, genom en lucka i häcken och in på
-    // rakan mot västra kurvan. Raka bitar närmast huvudbanan är bara gräs
-    // (glapp i genvägens väg) så att dess vallar aldrig hamnar på huvudbanan.
-    shortcuts: [{
-      from: [8, 30], via: [[-4, 28.8], [-15, 27.8]], to: [-24, 19.8], r: 6, roadHalf: 1.2, ai: 0.35,
-      aiSpeed: 12, // i full fart slår de snabbaste bilarna runt efter plankrampens hopp
-      elevation: [
-        { at: [-0.95, 29.1], y: 0 },
-        { at: [-3.94, 28.8], y: 0.28, linear: true },
-        { at: [-4.9, 28.66], y: 0.01 },
-      ],
-      gaps: [{ from: [8, 30], to: [1, 29.3] }, { from: [-3.94, 28.8], to: [-4.9, 28.66] }, { from: [-18.6, 24.6], to: [-24, 19.8] }],
-    }],
+    // Hårnålen i sicksackens botten ligger i en sluttande gräsvall (doserad)
+    bank: [{ at: [-5, 13], deg: 15, fade: 6 }],
+    // Öppen bana: gången kantas av gräsmatta, häckar och rabatter. Bara bron
+    // har bröstvärn och hoppets ramp och landning har kanter.
+    freeRoam: true,
+    checkpointHalf: 9,
+    closed: [{ from: [31, -6], to: [31, 17] }, { from: [-31, 2], to: [-31, -16] }],
+    embank: [{ from: [24.5, -26.5], to: [30, -16.5], slope: 3 }, { from: [0, 23.5], to: [-13, 21], slope: 3 }],
   },
 
-  trackTheme: { road: '#b6a584', roadRough: 0.92, side: 0x5a5850, pillar: 0x8a857a, barrierA: 0xaaa496, barrierB: 0x938e81 },
+  trackTheme: { road: '#b6a584', roadRough: 0.92, side: 0x5a5850, pillar: 0x8a857a, barrierA: 0xaaa496, barrierB: 0x938e81, embank: 0x6f8c48 },
   skyGradient: [0x2f7fd8, 0xa9d6f6, 0xe6f2e2],
   skyDome: { top: 0x1560cc, horizon: 0x8cc6f4, cloud: 0xffffff, cloudShade: 0x93a9c8, coverage: 0.5 },
   lighting: {
@@ -111,8 +105,7 @@ const CHANNEL = { z: 5.5, half: 1.5, x1: 39, bridgeX: 31 };
 function buildGarden({ scene, world, RAPIER, track }) {
   const r = rng(77);
   const clearance = track.roadHalf + track.barrier.thick;
-  const sc = track.shortcuts[0]?.path;
-  const roadDist = (x, z) => Math.min(Math.sqrt(track.nearest(x, z).d2), sc ? Math.sqrt(sc.nearest(x, z).d2) + track.roadHalf - sc.roadHalf : Infinity);
+  const roadDist = (x, z) => Math.sqrt(track.nearest(x, z).d2);
   const offRoad = (x, z, rad = 0.3) => roadDist(x, z) > clearance + rad + 0.35;
 
   makeLawn(scene, world, RAPIER, { size: SIZE });
@@ -254,7 +247,7 @@ function buildGarden({ scene, world, RAPIER, track }) {
     let skip = false;
     for (let k = -12; k <= 12 && !skip; k++) {
       const j = (i + k + track.N) % track.N;
-      skip = track.pts[j].y > 0.02 || track.isGap[j] || track.isOpen[j];
+      skip = track.pts[j].y > 0.02 || track.isGap[j];
     }
     if (skip) continue;
     const pose = track.poseAt(i, side * (track.roadHalf + 0.75));
@@ -282,49 +275,34 @@ function buildGarden({ scene, world, RAPIER, track }) {
   hedgeLine(27.2, -7, 27.2, 2);
   hedgeLine(27.2, 9.5, 27.2, 22);
   hedgeLine(-26, -26.2, -6, -26.2);
-  // Låga klippta häckar som kant där banan saknar vallar
-  const edgeHedge = (from, to, side) => {
-    for (const e of edgeSegments(track, from, to, { side, offset: track.roadHalf + 0.28, step: 1.2 })) {
-      const len = Math.hypot(e.bx - e.ax, e.bz - e.az);
-      hedges.push({ x: (e.ax + e.bx) / 2, z: (e.az + e.bz) / 2, w: len + 0.12, d: 0.42, h: 0.46, rotY: -Math.atan2(e.bz - e.az, e.bx - e.ax) });
+  // Naturliga kanter ytterst i kurvorna: en låg klippt buxbomshäck med en
+  // rabatt framför. Den som tar kurvan för fort kör genom blommorna och
+  // stannar i häcken i stället för mot en vall.
+  {
+    const { N, pts, normals, tangents, spacing, roadHalf } = track;
+    const span = Math.round(3 / spacing), step2 = 2;
+    const edgeAt = (i, side, off) => ({ x: pts[i].x + normals[i].x * off * side, z: pts[i].z + normals[i].z * off * side });
+    const outside = (i) => {
+      const a = tangents[(i - span + N) % N], b = tangents[(i + span) % N];
+      const ang = Math.asin(Math.max(-1, Math.min(1, a.x * b.z - a.z * b.x)));
+      return Math.abs(ang) / (2 * span * spacing) < 1 / 14 || pts[i].y > 0.03 || track.embank?.[i] ? 0 : (ang > 0 ? 1 : -1);
+    };
+    const off = roadHalf + 2.3;
+    for (let i = 0; i < N; i += step2) {
+      const j = (i + step2) % N, side = outside(i);
+      if (!side || outside(j) !== side) continue;
+      const p = edgeAt(i, side, off), q = edgeAt(j, side, off);
+      const mx = (p.x + q.x) / 2, mz = (p.z + q.z) / 2;
+      if (![p, q, { x: mx, z: mz }].every((c) => roadDist(c.x, c.z) > off - 0.3 && !blocked(c.x, c.z, 0.1))) continue;
+      hedges.push({ x: mx, z: mz, w: Math.hypot(q.x - p.x, q.z - p.z) + 0.14, d: 0.42, h: 0.46, rotY: -Math.atan2(q.z - p.z, q.x - p.x) });
+      const f = edgeAt(i, side, off - 0.7);
+      flowers.push({ x: f.x, z: f.z, y: 0, s: 0.8 + r() * 0.3 });
     }
-  };
-  edgeHedge([-9.5, -30], [2.5, -30], 0);
-  edgeHedge([10, 30], [1.2, 23.5], -1);
-  edgeHedge([-14, 20.5], [-31, 11], -1);
-  edgeHedge([-14, 20.5], [-18.6, 21.3], 1);
-  edgeHedge([-25, 19.6], [-31, 11], 1);
-  // Luckan i häcken som genvägen går igenom
-  hedges.push({ x: -5.5, z: 24.7, w: 3.8, d: 0.55, h: 0.75, rotY: -Math.PI / 2 }, { x: -5.5, z: 32.6, w: 3.8, d: 0.55, h: 0.75, rotY: -Math.PI / 2 });
+  }
   addHedges(scene, world, RAPIER, hedges);
 
   // Pergolan med klätterrosor efter starten
   addPergola(scene, world, RAPIER, { ax: -9, az: -30, bx: 2, bz: -30, clear: 2.62, h: 2.05, flowers, bushes, seed: 4 });
-
-  // Genvägen: plankramp och blomsterrabatt under hoppet
-  if (sc) {
-    let k0 = -1, k1 = -1;
-    for (let i = 0; i < sc.N - 1; i++) {
-      if (!sc.isGap[i] && sc.pts[i].y > 0.005 && k0 < 0) k0 = Math.max(0, i - 1);
-      if (!sc.isGap[i] && sc.isGap[i + 1] && sc.pts[i].y > 0.1) k1 = i;
-    }
-    if (k0 >= 0 && k1 > k0) {
-      addPlankKicker(scene, sc, k0, k1);
-      const e = sc.pts[k1], t = sc.tangents[k1];
-      addFlowerBed(scene, { x: e.x + t.x * 0.75, z: e.z + t.z * 0.75, w: 1.0, d: 2.2, rotY: -Math.atan2(t.z, t.x), flowers });
-    }
-    // Trampstenar där genvägen bara är gräs (utanför huvudbanan)
-    const lawn = [];
-    let from = -1;
-    for (let i = 0; i < sc.N - 1; i++) {
-      const p = sc.pts[i];
-      const free = sc.isGap[i] && p.y < 0.02 && Math.sqrt(track.nearest(p.x, p.z).d2) > track.roadHalf + 0.5;
-      if (free && from < 0) from = i;
-      if (!free && from >= 0) { lawn.push([from, i - 1]); from = -1; }
-    }
-    if (from >= 0) lawn.push([from, sc.N - 2]);
-    addSteppingStones(scene, sc, lawn);
-  }
 
   // Starten: skottkärra, vattenkanna och jordsäckar vid gången
   addGardenTools(scene, world, RAPIER, { x: -18.2, z: -27.25, rot: Math.PI / 2 });
@@ -342,7 +320,7 @@ function buildGarden({ scene, world, RAPIER, track }) {
   for (const [cp, s] of [[2, -1], [5, 1], [9, 1], [13, -1]]) {
     const c = track.checkpoints[cp];
     const pose = track.poseAt(c.index, s * (track.roadHalf + 0.55));
-    if (track.pts[c.index].y > 0.02 || track.isOpen[c.index] || !offRoad(pose.x, pose.z, -0.2) || blocked(pose.x, pose.z, 0.2)) continue;
+    if (track.pts[c.index].y > 0.02 || !offRoad(pose.x, pose.z, -0.2) || blocked(pose.x, pose.z, 0.2)) continue;
     if (pots.some((p) => Math.hypot(p.x - pose.x, p.z - pose.z) < 1)) continue;
     loose.push(addLoosePot(scene, world, RAPIER, { x: pose.x, z: pose.z }));
   }

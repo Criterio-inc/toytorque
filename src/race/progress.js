@@ -29,7 +29,7 @@ export const CUP_REWARDS = {
 // Utmaningstider i tidskörning (bästa varv, sekunder): Raskets varv med
 // datorföraren gånger 1,05, avrundat uppåt till halv sekund.
 export const CHALLENGE = {
-  kitchen: 25.5, lagret: 21.0, spokstaden: 23.0, kryssaren: 22.5, tradgarden: 23.5,
+  kitchen: 25.5, lagret: 26.0, spokstaden: 23.5, kryssaren: 22.5, tradgarden: 28.5,
   leksaksaffaren: 24.5, museet: 24.5, kvarteret: 28.5, supermarket: 26.0, skejtparken: 27.0,
 };
 
