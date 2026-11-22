@@ -1319,3 +1319,98 @@ export function addPlankRamp(B, path, i0, i1) {
     for (const g of palletGeos()) { g.applyMatrix4(M); B.add('wood', g, [0.8, 0.76, 0.7]); }
   }
 }
+
+/**
+ * Körbrygga i stål, sådan som truckarna kör upp i lastbilarna på: plåtdäck
+ * med räfflor, gula kanter och stödben under den höga änden. Klär en ramp
+ * på banan (vägpunkter i0..i1, i1 är kanten).
+ */
+export function addYardRamp(B, path, i0, i1) {
+  if (!B) return;
+  const { pts, normals, roadHalf } = path;
+  const up = new THREE.Vector3(0, 1, 0), m = new THREE.Matrix4();
+  const steel = [0.62, 0.64, 0.66], yel = [0.98, 0.72, 0.06];
+  const w = roadHalf * 2 * 0.98;
+  for (let i = i0; i < i1; i++) {
+    const p = pts[i], q = pts[i + 1];
+    const a = new THREE.Vector3(p.x, p.y + 0.016, p.z), b = new THREE.Vector3(q.x, q.y + 0.016, q.z);
+    const len = a.distanceTo(b) + 0.012;
+    m.lookAt(a, b, up).setPosition((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+    const put = (key, g, c) => { g.applyMatrix4(m); B.add(key, g, c); };
+    put('metal', mbox(w, 0.024, len, 0, 0, 0, 0.5), steel);
+    // Tvärgående räfflor ger fäste åt truckhjulen
+    for (let k = 0; k < 3; k++) put('metal', mbox(w * 0.94, 0.008, 0.03, 0, 0.016, -len / 2 + (k + 0.5) * (len / 3)), [0.5, 0.52, 0.54]);
+    for (const s of [-1, 1]) put('paint', mbox(0.07, 0.07, len, s * (w / 2 - 0.035), 0.035, 0), yel);
+  }
+  // Kanten: varningsrand, och stödben med hjul ner till golvet
+  const e = pts[i1], d = pts[i1 - 1];
+  const rot = Math.atan2(e.x - d.x, e.z - d.z);
+  const M = place(e.x, 0, e.z, rot);
+  const add = (key, g, c) => { g.applyMatrix4(M); B.add(key, g, c); };
+  add('hazard', mbox(w, 0.04, 0.12, 0, e.y + 0.01, -0.06, 0.5), [1, 1, 1]);
+  for (const s of [-1, 1]) {
+    const x = s * (w / 2 - 0.25);
+    add('paint', mbox(0.1, e.y, 0.1, x, e.y / 2, -0.35), yel);
+    add('paint', mbox(0.08, 0.06, 0.6, x, e.y * 0.45, -0.62).applyMatrix4(new THREE.Matrix4().makeRotationX(-0.5)), yel);
+    add('metal', new THREE.CylinderGeometry(0.07, 0.07, 0.06, 14).rotateZ(Math.PI / 2).translate(x, 0.07, -0.35), [0.12, 0.12, 0.13]);
+  }
+  add('paint', mbox(w - 0.5, 0.08, 0.08, 0, e.y * 0.55, -0.35), yel);
+}
+
+/** Plywoodskivor på en pallstapel: landningen efter körbryggan (i0 är den höga änden). */
+export function addLandingDeck(B, path, i0, i1) {
+  if (!B) return;
+  const { pts, normals, roadHalf } = path;
+  const up = new THREE.Vector3(0, 1, 0), m = new THREE.Matrix4();
+  for (let i = i0; i < i1; i++) {
+    const p = pts[i], q = pts[i + 1];
+    const a = new THREE.Vector3(p.x, p.y + 0.016, p.z), b = new THREE.Vector3(q.x, q.y + 0.016, q.z);
+    m.lookAt(a, b, up).setPosition((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+    const g = mbox(roadHalf * 2 * 0.98, 0.022, a.distanceTo(b) + 0.012, 0, 0, 0, 1.2);
+    g.applyMatrix4(m);
+    const tone = 0.9 + (Math.floor((i - i0) / 4) % 2) * 0.06; // en ny skiva var fjärde punkt
+    B.add('wood', g, [tone, tone * 0.9, tone * 0.72]);
+  }
+  const s = pts[i0], n = normals[i0];
+  const rot = Math.atan2(n.x, n.z);
+  const count = Math.max(1, Math.floor(s.y / PALLET.h));
+  for (let k = 0; k < count; k++) {
+    const M = place(s.x, k * PALLET.h, s.z, rot);
+    for (const g of palletGeos()) { g.applyMatrix4(M); B.add('wood', g, [0.8, 0.76, 0.7]); }
+  }
+}
+
+/**
+ * Stor tom kartong som ligger på sidan med flikarna uppvikta i båda ändar,
+ * till exempel emballaget till en lekstuga. Går att köra igenom.
+ * (x, z) är mitten, rot vridningen (längsriktningen följer +z vid rot 0).
+ */
+export function addOpenCarton(B, world, RAPIER, { x, z, rot = 0, len = 2.0, w = 0.95, h = 0.8, seed = 1 } = {}) {
+  const t = 0.012;
+  if (world) {
+    const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(x, 0, z).setRotation(yQuat(rot)));
+    const col = (hx, hy, hz, px, py, pz) => world.createCollider(
+      RAPIER.ColliderDesc.cuboid(hx, hy, hz).setTranslation(px, py, pz).setFriction(0.4).setCollisionGroups(groups(G.WORLD)), body);
+    for (const s of [-1, 1]) col(0.02, h / 2, len / 2, s * (w / 2 + 0.02), h / 2, 0);
+    col(w / 2 + 0.04, 0.02, len / 2, 0, h + 0.02, 0);
+  }
+  if (!B) return;
+  const r = rng(seed * 131 + 7);
+  const M = place(x, 0, z, rot);
+  const add = (g) => { g.applyMatrix4(M); B.add('card', g, null); };
+  // Väggar och tak: kartongens sidor med tryck, botten en tunn skiva på golvet
+  for (const s of [-1, 1]) add(cardboardGeo(t, h, len, r).translate(s * (w / 2 + t / 2), h / 2, 0));
+  add(cardboardGeo(w + t * 2, t, len, r).translate(0, h + t / 2, 0));
+  add(cardboardGeo(w, 0.006, len, r).translate(0, 0.003, 0));
+  // Flikarna i båda ändar: taket och sidorna uppvikta utåt, bottenfliken platt på golvet
+  for (const e of [-1, 1]) {
+    const z0 = e * len / 2, fl = Math.min(w, h) * 0.5;
+    const top = cardboardGeo(w, t, fl, r).translate(0, 0, e * fl / 2).rotateX(-e * 0.55).translate(0, h, z0);
+    add(top);
+    for (const s of [-1, 1]) {
+      const side = cardboardGeo(t, h, fl, r).translate(0, h / 2, e * fl / 2).rotateY(s * e * 0.7).translate(s * (w / 2 + t / 2), 0, z0);
+      add(side);
+    }
+    add(cardboardGeo(w, 0.006, fl, r).translate(0, 0.003, z0 + e * fl / 2));
+  }
+}

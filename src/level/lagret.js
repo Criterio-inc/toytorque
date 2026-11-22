@@ -1,16 +1,23 @@
 import {
   makeConcreteFloor, makeHallWalls, addPillar, addLooseBox, addToyBlock, addBeachBall, addFloorLines, PALLET,
   edgeSegments, edgeColliders, WarehouseBatch, addBoxStackB, addPalletB, addLoadedPalletB, addForklift,
-  addRackTunnel, addGuardRail, addPlankRamp,
+  addRackTunnel, addGuardRail, addPlankRamp, addYardRamp, addLandingDeck, addOpenCarton,
 } from './warehouseArt.js';
 import { cartonWall } from './stacks.js';
 
 // ---------------------------------------------------------------------------
 // Nivå: Lagret. Leksakslager i riktig skala (meter) med en åtta där banan går
-// över sig själv på en bro, och ett hopp över ett glapp på vänsterrakan.
+// över sig själv på en bro. Hoppet på vänsterrakan går från en körbrygga i
+// stål ner på plywood över pallar. Vid diagonalen under bron ligger en tom
+// kartong på sidan bredvid vägen: den som vill kan köra igenom den.
 // ---------------------------------------------------------------------------
 
 const C = 26; // hörnens avstånd från mitten
+
+// Kartongen bredvid diagonalen under bron (vägen följer x = -t, z = t här).
+// t anger läget längs diagonalen; kartongen ligger 3,4 m ut på vänster sida.
+const BOX = { t: 15.2, off: 3.4, len: 2.0, out: [11, 13], in: [17.2, 19.4] };
+const diag = (t, off = 0) => [-t + off * Math.SQRT1_2, t + off * Math.SQRT1_2];
 
 export const lagret = {
   id: 'lagret',
@@ -72,7 +79,13 @@ export const lagret = {
       { from: [-C, 15.8], to: [-C, 7.6] },
       { from: [4.5, -4.5], to: [-6.5, 6.5] },
       { from: [-C, -8.5], to: [-16.5, -16.5] },
+      // Ut till kartongen och in igen; på andra sidan står ett påkörningsskydd
+      { from: diag(BOX.out[0]), to: diag(BOX.out[1]) }, { from: diag(BOX.in[0]), to: diag(BOX.in[1]) },
     ],
+    // Kontrollpunkterna når ut till kartongen
+    checkpointHalf: 4.6,
+    // Styr spelaren åt vänster före kartongen siktar körhjälpen genom den
+    sideExits: [{ zone: [-17, 5, -5, 21], line: [diag(9, 0.2), diag(11.6, 1.6), diag(13.3, BOX.off), diag(BOX.t + 1.1, BOX.off)], side: 1, speed: 5 }],
     // Genvägen genom innerfältet: av diagonalen under bron, förbi pelaren
     // och över gaffeltruckens plankramp, in på vänster raka efter hoppet.
     // Smal och med en skarp sväng, men kortare. Raka bitar närmast
@@ -128,6 +141,16 @@ export const lagret = {
     addRackTunnel(B, world, RAPIER, { ax: -C, az: 15.5, bx: -C, bz: 8, clear: 1.95, seed: 3 });
     const edges = buildEdges({ world, RAPIER, track });
     addGuardRail(B, edges);
+
+    // Hoppet på vänsterrakan: körbrygga upp till kanten, plywood på pallar efter glappet
+    {
+      const at = (x, z) => track.nearest(x, z).index;
+      const lip = at(-C, -1.45), land = at(-C, -2.75);
+      addYardRamp(B, track, at(-C, 6.6), lip);
+      addLandingDeck(B, track, land, at(-C, -10.8));
+    }
+    // Kartongen bredvid diagonalen, längs med vägen
+    { const [x, z] = diag(BOX.t, BOX.off); addOpenCarton(B, world, RAPIER, { x, z, rot: -Math.PI / 4, len: BOX.len, seed: 4 }); }
 
     // Genvägen: lastade pallar längs gränden, plankrampen på pallar och
     // trucken som ställde dit den
@@ -199,6 +222,9 @@ function buildEdges({ world, RAPIER, track }) {
     // Räcket på ytterkanten genom hörnet: något innanför vallarnas linje och
     // en bit in över vallens början, så att ingen ände sticker ut att haka i
     ...edgeSegments(track, [-C, -8.2], [-15.9, -15.9], { side: 1, offset: track.roadHalf + 0.06 }),
+    // Andra sidan av diagonalen där kantstenen är öppnad mot kartongen
+    ...edgeSegments(track, diag(BOX.out[0] - 0.3), diag(BOX.out[1] + 0.3), { side: -1, offset: track.roadHalf + 0.06 }),
+    ...edgeSegments(track, diag(BOX.in[0] - 0.3), diag(BOX.in[1] + 0.3), { side: -1, offset: track.roadHalf + 0.06 }),
   ];
   edgeColliders(world, RAPIER, segs, { h: 0.34, thick: 0.14 }); // lika hög som räcket syns
   return segs;
