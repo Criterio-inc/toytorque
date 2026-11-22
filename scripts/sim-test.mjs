@@ -963,8 +963,8 @@ if (!only || only === 'korhjalp') {
   }
 }
 
-// 11h. Sidovägar som bara spelaren tar: husdjursluckan och altanen i Köket och
-// avloppsröret på Kvarteret (kör: npm test sidovagar)
+// 11h. Sidovägar som bara spelaren tar: husdjursluckan och altanen i Köket,
+// kartongen på Lagret och avloppsröret på Kvarteret (kör: npm test sidovagar)
 if (!only || only === 'sidovagar') {
   const { helpControls } = await import('../src/vehicle/driveHelp.js');
   const setup = (level, pose) => {
@@ -1017,6 +1017,26 @@ if (!only || only === 'sidovagar') {
     }
     check('Köket: luckan och altanen', stays && through && w === wps.length && lineOnDeck && b.racer.nextCp >= cp0 + 3 && b.racer.stuckTime < 2,
       `utan styrning ${stays ? 'kvar på vägen' : 'FEL: lämnar vägen'}, genom luckan ${through ? 'efter ' + flapT.toFixed(1) + ' s' : 'FEL'}, altanen ${w}/${wps.length} punkter, mållinjen ${lineOnDeck ? 'räknas' : 'FEL'}, kontrollpunkt ${b.racer.nextCp} efter ${t.toFixed(0)} s`);
+  }
+
+  // Lagret: ett tryck åt vänster på diagonalen under bron, så siktar körhjälpen
+  // ut genom öppningen och in i kartongen. Efter den tillbaka upp på vägen.
+  {
+    const from = { x: -4, z: 4, heading: -Math.PI / 4 };
+    const tOf = (p) => (p.z - p.x) / 2, offOf = (p) => (p.x + p.z) * Math.SQRT1_2;
+    const a = setup(lagret, from);
+    for (let t = 0; t < 2.5; t += STEP) a.step({ throttle: 1, steer: 0 });
+    const stays = Math.abs(offOf(a.car.position)) < 1.2;
+    const b = setup(lagret, from);
+    let inside = false, back = false, t = 0;
+    for (; t < 10 && !back; t += STEP) {
+      const p = b.car.position, tt = tOf(p), off = offOf(p);
+      if (tt > 14.6 && tt < 15.8 && off > 3.0 && off < 3.8) inside = true;
+      if (inside && tt > 19.5 && Math.abs(off) < 1.3) back = true;
+      b.step({ throttle: 1, steer: tt > 6 && tt < 6.8 ? 1 : inside && tt > 16.8 && off > 0.6 ? -0.7 : 0 });
+    }
+    check('Lagret: kartongen', stays && inside && back && b.racer.stuckTime < 1,
+      `utan styrning ${stays ? 'kvar på vägen' : 'FEL: lämnar vägen'}, genom kartongen ${inside ? 'ja' : 'FEL'}, tillbaka på vägen ${back ? 'efter ' + t.toFixed(1) + ' s' : 'FEL'}`);
   }
 
   // Kvarteret: rakt genom avloppsröret på byggplatsen utan att fastna

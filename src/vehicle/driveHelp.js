@@ -28,20 +28,23 @@ export function helpControls(controls, vehicle, racer, track, level) {
   // förbi. Styr spelaren mot avfarten inne i dess zon siktar hjälpen i stället
   // på öppningen och håller farten nere, tills bilen är igenom.
   const pos0 = vehicle.currPos;
-  let exit = null;
+  let exit = null, at = null;
   for (const e of T.sideExits || []) {
     const [x0, z0, x1, z1] = e.zone;
     if (pos0.x < x0 || pos0.x > x1 || pos0.z < z0 || pos0.z > z1) continue;
-    if (racer.exitAim === e || steer * e.side > 0.5) exit = e;
+    const m = alongLine(e.line || [e.from, e.aim], pos0.x, pos0.z);
+    // Ny avfart bara före öppningen (en bit förbi den hade hjälpen styrt in i
+    // väggen), och hjälpen släpper när bilen nått linjens slut
+    if (m.s > m.total - 0.3) continue;
+    if (racer.exitAim === e || (steer * e.side > 0.5 && m.s < 2)) { exit = e; at = m; }
   }
   racer.exitAim = exit;
   if (exit) {
-    // Sikta på en punkt en bit fram på linjen genom öppningen, så att bilen
-    // kommer rakt in och inte snett mot karmen
-    const ax = exit.aim[0] - exit.from[0], az = exit.aim[1] - exit.from[1], al = Math.hypot(ax, az);
-    const t = Math.min(al, ((pos0.x - exit.from[0]) * ax + (pos0.z - exit.from[1]) * az) / al + 1.2);
+    // Sikta på en punkt en bit fram längs linjen genom öppningen, så att bilen
+    // följer den och kommer rakt in i stället för snett mot karmen
+    const [tx, tz] = at.point(Math.max(0, at.s) + 1.2);
     _q.copy(vehicle.currQuat).invert();
-    _v.set(exit.from[0] + (ax / al) * t - pos0.x, 0, exit.from[1] + (az / al) * t - pos0.z).applyQuaternion(_q);
+    _v.set(tx - pos0.x, 0, tz - pos0.z).applyQuaternion(_q);
     const ideal = Math.max(-1, Math.min(1, Math.atan2(_v.x, _v.z) / (vehicle.def.steerMax * 0.8)));
     const k = Math.min(1, 0.5 + 0.5 * level);
     _out.steer = steer * (1 - k) + ideal * k;
@@ -87,3 +90,35 @@ export function helpControls(controls, vehicle, racer, track, level) {
   return _out;
 }
 
+// Var bilen ligger längs en bruten linje [[x, z], ...]: sträckan s från
+// början (projicerad på närmaste del), linjens längd och en funktion som ger
+// punkten en viss sträcka in.
+function alongLine(pts, x, z) {
+  let best = Infinity, s = 0, acc = 0;
+  const lens = [];
+  for (let k = 0; k < pts.length - 1; k++) {
+    const [ax, az] = pts[k], [bx, bz] = pts[k + 1];
+    const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz);
+    lens.push(L);
+    let u = ((x - ax) * dx + (z - az) * dz) / (L * L);
+    const first = k === 0, last = k === pts.length - 2;
+    if (!first) u = Math.max(0, u);
+    if (!last) u = Math.min(1, u);
+    const d = Math.hypot(ax + dx * u - x, az + dz * u - z);
+    if (d < best) { best = d; s = acc + u * L; }
+    acc += L;
+  }
+  const point = (t) => {
+    t = Math.min(acc, t);
+    let a = 0;
+    for (let k = 0; k < lens.length; k++) {
+      if (t <= a + lens[k] || k === lens.length - 1) {
+        const u = (t - a) / lens[k], [ax, az] = pts[k], [bx, bz] = pts[k + 1];
+        return [ax + (bx - ax) * u, az + (bz - az) * u];
+      }
+      a += lens[k];
+    }
+    return pts[pts.length - 1];
+  };
+  return { s, total: acc, point };
+}

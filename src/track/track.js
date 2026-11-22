@@ -17,7 +17,7 @@ import { G, groups, GRAVITY } from '../core/physics.js';
 //   freeRoam    true               öppen bana: inga kantvallar, bilarna får lämna vägen
 //   closed      [[a0, a1], ...]    sträckor på en öppen bana som ändå har kantvallar (doserade kurvor)
 //   checkpointHalf  meter          halva bredden på kontrollpunkterna (öppna banor har breda)
-//   sideExits   [{zone, from, aim, side, speed}]  avfart mot något vid sidan av vägen (en lucka, ett rör):
+//   sideExits   [{zone, from, aim | line: [[x, z], ...], side, speed}]  avfart mot något vid sidan av vägen (en lucka, ett rör):
 //                                  styr spelaren ditåt inne i zonen siktar körhjälpen på aim
 //   bank        [{at, deg, len?, fade?}]  doserad kurva: hela kurvan som
 //                                  punkten ligger i lutas deg grader (ytterkanten
