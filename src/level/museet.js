@@ -11,6 +11,7 @@ import { buildMuseum } from './museumArt.js';
 // Genvägen går snett genom Egyptensalen i en gravkammare, västra rakan har
 // ett bordshopp över en månkrater, nordöstra kurvan i Egyptensalen är doserad
 // och vid trappans fot står biljettkiosken.
+// Banan är öppen: utställningen och väggarna är kanterna.
 // ---------------------------------------------------------------------------
 
 export const MUSEUM = {
@@ -44,6 +45,7 @@ export const TOMB = { A: [E, 5], V1: [E, -1], V2: [20.5, -26], V3: [11, -31.2], 
 export const museet = {
   id: 'museet',
   name: 'Museet',
+  layout: 2, // öppen bana sedan 2026-11-23: äldre spökbilar gäller inte
   laps: 3,
   sky: 0x0b0912,
   skyGradient: [0x05040a, 0x0e0b18, 0x0a0812],
@@ -60,7 +62,7 @@ export const museet = {
   // Sammetsrep (djupröd) och mässing som kantvallar
   trackTheme: {
     road: '#3a3540', roadRough: 0.3, side: 0xcfc6b4, pillar: 0x8c8474,
-    barrierA: 0x6a0c18, barrierB: 0x8f6c2c,
+    barrierA: 0x6a0c18, barrierB: 0x8f6c2c, embank: 0xc9a46a,
   },
 
   track: {
@@ -110,9 +112,16 @@ export const museet = {
     gaps: [{ from: [J, N], to: [J - 1.2, N] }, { from: [STAIRS.x0, ST], to: [STAIRS.x0 + STAIRS.gap, ST] }],
     // Egyptensalens nordöstra kurva är doserad (sandstensvall)
     bank: [{ at: [E, N], deg: 15, fade: 5 }],
-    // Vallarna öppnas där genvägen delar sig och går ihop med banan;
-    // sandstensblock håller bilarna kvar
-    openings: [{ from: [E, 6], to: [E, -14] }, { from: [16, N], to: [1.5, N] }],
+    // Öppen bana: montrarna, pelarna, skeletten, väggarna och
+    // sandstensblocken är kanterna. Hoppen, rulltrappan, galleriet och trappan
+    // har sammetsrep; den doserade kurvan är en sandstensvall.
+    freeRoam: true,
+    checkpointHalf: 6,
+    closed: [
+      { from: [J + 8.5, N], to: [J - 12.5, N] },
+      { from: [W, J3 - 8.5], to: [STAIRS.x1 + 2, ST] },
+    ],
+    embank: [{ from: [E, N + 7], to: [E - 7, N], slope: 2.5 }],
     shortcuts: [{
       from: TOMB.A, to: TOMB.B, via: [TOMB.V1, TOMB.V2, TOMB.V3], r: 12, roadHalf: 1.35, ai: 0.35,
       gaps: [{ from: [E - 0.1, 4.6], to: [27.5, -7.6] }, { from: [12.4, -29.0], to: [4.3, -31.95] }],

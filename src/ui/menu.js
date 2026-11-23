@@ -21,7 +21,7 @@ const BLURB = {
   kryssaren: 'Kryssaren. Kappkörning på öppet däck mellan relingen och däckshuset, upp till soldäcket och genom promenaden.',
   tradgarden: 'Trädgården. Palmhuset utan kantvallar: en slingrig grusgång över gräskullen och stenbron, ett S runt palmerna, hårnålen i gräsvallen och hoppet över rännan. Låga häckar väntar i kurvorna.',
   leksaksaffaren: 'Leksaksaffären. Nattöppet bland hyllorna utan kantvallar: regnbågsrampen, borgtunneln vid roboten och hoppet.',
-  museet: 'Museet. Nattligt museum: dinosaurien, Egyptensalen, hoppet över det svarta hålet och rulltrappan upp till galleriet.',
+  museet: 'Museet. Nattligt museum där montrarna och pelarna är kanterna: dinosaurien, Egyptensalen, hoppet över det svarta hålet och rulltrappan upp till galleriet.',
   skejtparken: 'Skejtparken. Öppen bana i parken utan kantvallar: gena över gräset om du vågar. Bordshopp, S-kurva, stora hoppet, vågen och skålen.',
   kvarteret: 'Kvarteret. Villagatan i solsken utan höga kantstenar: gena över gräsremsan om du vågar, men akta brevlådorna, staketen och träden. Skaterampen, rondellen och genvägen genom garaget.',
   supermarket: 'Supermarketen. Hyllgångar utan kantvallar, där gondolerna, frysdiskarna och backstaplarna är kanterna. Kampanjhopp, lastkajen och det hala frysrummet.',
