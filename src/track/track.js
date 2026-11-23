@@ -19,7 +19,7 @@ import { G, groups, GRAVITY } from '../core/physics.js';
 //   checkpointHalf  meter          halva bredden på kontrollpunkterna (öppna banor har breda)
 //   embank      [{from, to, slope?}]  upphöjda sträckor med sluttande vallar i stället för
 //                                  lodräta sidor (sandbankar på öppna banor), slope = meter ut per meter höjd
-//   sideExits   [{zone, from, aim | line: [[x, z], ...], side, speed}]  avfart mot något vid sidan av vägen (en lucka, ett rör):
+//   sideExits   [{zone, from, aim | line: [[x, z], ...], side, speed, auto?}]  avfart mot något vid sidan av vägen (en lucka, ett rör):
 //                                  styr spelaren ditåt inne i zonen siktar körhjälpen på aim
 //   bank        [{at, deg, len?, fade?}]  doserad kurva: hela kurvan som
 //                                  punkten ligger i lutas deg grader (ytterkanten

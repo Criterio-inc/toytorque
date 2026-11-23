@@ -11,6 +11,9 @@ import { buildKitchen } from './kitchenArt.js';
 // och ett krön ner mot spisen. Efter matbordet finns en sidoväg för spelaren:
 // rakt fram genom husdjursluckan i köksdörren, över altanen och in igen genom
 // de öppna pardörrarna.
+//
+// Banan är öppen: inga lister längs golvet utom på platån och vid hoppet.
+// Möblerna och väggarna är kanterna.
 // ---------------------------------------------------------------------------
 
 export const ROOM = { x0: -20, x1: 20, z0: -14, z1: 14, H: 2.7 };
@@ -44,6 +47,7 @@ export const KITCHEN = {
 export const kitchen = {
   id: 'kitchen',
   name: 'Köket',
+  layout: 2, // öppen bana sedan 2026-11-23: äldre spökbilar gäller inte
   laps: 3,
   sky: 0xf3ead8,
   fog: { near: 26, far: 70, color: 0xf1e7d6 },
@@ -107,12 +111,21 @@ export const kitchen = {
     gaps: [{ from: [6.5, NZ], to: [7.7, NZ] }],
     airZones: [{ from: [-2, NZ], to: [6.4, NZ] }], // det höga hoppet: bilarna hålls plana i luften
     bank: [{ at: [WX, NZ], deg: 14, fade: 2 }],
-    // Under matbordet är benen kanten
-    openings: [{ from: [DX, 3.3], to: [DX, 5.9] },
-      // Ut mot husdjursluckan och in från pardörrarna: där saknas listen mot väggen
-      { from: [3.64, 9.4], to: [2.32, 10.95] }, { from: [-11.2, SZ], to: [-14.9, 11.5] }],
+    // Öppen bana: skåpen, köksön, stolarna, bordsbenen, kylen och väggarna
+    // är kanterna. Bara skärbrädesplatån och hoppet vid spisen har lister,
+    // så att ingen kör över kanten och ramlar ner på golvet.
+    freeRoam: true,
+    closed: [{ from: [-8, ISL], to: [-8.5, NZ] }, { from: [-3, NZ], to: [14.2, NZ] }],
     // Styr spelaren vänster efter matbordet siktar körhjälpen på luckan
-    sideExits: [{ zone: [3.0, 6.1, 5.2, 14.2], from: [ALTAN.flap.x, 6], aim: [ALTAN.flap.x, 15.6], side: 1, speed: 5 }],
+    sideExits: [
+      { zone: [3.0, 6.1, 5.2, 14.2], from: [ALTAN.flap.x, 6], aim: [ALTAN.flap.x, 15.6], side: 1, speed: 5 },
+      // Ute på altanen leder körhjälpen till pardörrarna. Utan lister runt
+      // kurvan hamnar en ovan förare annars mot dörrkarmen.
+      {
+        zone: [ALTAN.x0, 14.05, ALTAN.x1, 14 + ALTAN.depth], auto: true, side: 1, speed: 5,
+        line: [[ALTAN.flap.x, 15.4], [0, 17.2], [-9, 16.6], [-11.4, 15.8], [ALTAN.doors.x, 14.0], [ALTAN.doors.x, 12.2]],
+      },
+    ],
     // Kontrollpunkterna räcker ut över altanen
     checkpointHalf: 7.5,
   },

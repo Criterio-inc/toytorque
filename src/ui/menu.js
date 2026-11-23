@@ -16,7 +16,7 @@ import { TrackEditor } from '../editor/editor.js';
 const CLASSES = ['Rookie', 'Amateur', 'Advanced', 'Semi-Pro', 'Pro'];
 const BLURB = {
   lagret: 'Leksakslagret. Breda gångar utan påkörningsskydd, där pallställen är kanterna. Ett hopp från en körbrygga, en tom kartong att köra igenom och en genväg genom ett tomt fack under truckens pall.',
-  kitchen: 'Köket. Ett stort kök med matsal i riktig skala: längs bänkskåpen förbi spisen och kylen, hopp över kokböckerna, runt köksön med barstolarna och rakt in under matbordet mellan stolsbenen. Den som vågar tar luckan i köksdörren och en sväng över altanen.',
+  kitchen: 'Köket. Ett stort kök med matsal i riktig skala: längs bänkskåpen förbi spisen och kylen, hopp över kokböckerna, runt köksön med barstolarna och rakt in under matbordet mellan stolsbenen. Inga lister på golvet: möblerna är kanterna. Den som vågar tar luckan i köksdörren och en sväng över altanen.',
   spokstaden: 'Spökstaden. Öppen öken utan kantvallar: västerngatan, plankhoppet över bäcken, sandbanken och gruvtunneln. Stenar och kaktusar väntar den som tar kurvan för fort.',
   kryssaren: 'Kryssaren. Kappkörning på däck, upp till soldäcket och genom promenaden.',
   tradgarden: 'Trädgården. Palmhuset utan kantvallar: en slingrig grusgång över gräskullen och stenbron, ett S runt palmerna, hårnålen i gräsvallen och hoppet över rännan. Låga häckar väntar i kurvorna.',
