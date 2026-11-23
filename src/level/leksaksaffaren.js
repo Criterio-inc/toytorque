@@ -16,6 +16,7 @@ import {
 // tågbanan, genom bollhavsviken och in i den gröna borgtunneln vid roboten.
 // Genvägen från bucklan hoppar över en tågräls och går genom borgens
 // sidoport. Vid starten står uppdragsbilen med jättenyckeln och biltransporten.
+// Banan är öppen: leksakerna och inredningen är kanterna.
 // ---------------------------------------------------------------------------
 
 const SIZE = 84, H = 8;
@@ -66,6 +67,7 @@ const SHORTCUT = {
 export const leksaksaffaren = {
   id: 'leksaksaffaren',
   name: 'Leksaksaffären',
+  layout: 2, // öppen bana sedan 2026-11-23: äldre spökbilar gäller inte
   laps: 3,
   sky: 0x0c0e1c,
   skyGradient: [0x05060d, 0x141831, 0x0c0e1c],
@@ -115,8 +117,13 @@ export const leksaksaffaren = {
     gaps: [{ from: [J, N], to: [J + 1.2, N] }, { from: [EAST, STAIRS.z0], to: [EAST, STAIRS.z0 + STAIRS.gap] }],
     // Hörnet upp mot östra rakan är doserat
     bank: [{ at: [EAST, N], deg: 12, fade: 7 }],
-    // Vallarna öppnas där genvägen delar sig och går ihop med banan
-    openings: [{ from: [5, 28], to: [-12, 8.1] }, { from: [-30.5, -25], to: [-10, N] }],
+    // Öppen bana: hyllorna, gondolerna, klossmurarna, tågbanan och borgen
+    // är kanterna. Hoppet och start- och målrakan har räcken, och från den
+    // doserade kurvan (som en leksaksracerbana) uppför regnbågsrampen, över
+    // övervåningen och nedför trappan går räcket hela vägen.
+    freeRoam: true,
+    checkpointHalf: 7,
+    closed: [{ from: [J - 8.5, N], to: [26, N] }, { from: [EAST - 8, N], to: [EAST, STAIRS.z1] }],
     shortcuts: [SHORTCUT],
   },
 
@@ -229,9 +236,10 @@ function buildToyStore({ scene, world, RAPIER, track }) {
       addBlockWall(B, world, RAPIER, { x: q.x, z: q.z, rot: q.heading + Math.PI / 2, cols: 3, rows: 1, s: 0.7, seed: 50 + s });
     }
   }
-  // Klossmur norr om norra rakan där banan saknar vallar (påfarten)
+  // Klossmur norr om norra rakan vid genvägens påfart, så långt ut att en
+  // bil som kommer snett från genvägen hinner räta upp sig före muren
   for (const [x, cols, txt] of [[-26.2, 5, 'TORQUE!'], [-20.4, 4, null], [-15.4, 4, 'R4'], [-10.4, 4, null]]) {
-    addBlockWall(B, world, RAPIER, { x, z: N - 2.55, rot: 0, cols, rows: 2, s: 0.8, seed: 60 + cols, text: txt });
+    addBlockWall(B, world, RAPIER, { x, z: N - 3.4, rot: 0, cols, rows: 2, s: 0.8, seed: 60 + cols, text: txt });
   }
 
   // --- väggarna: hyllor med kartonger runt hela butiken ---------------------
