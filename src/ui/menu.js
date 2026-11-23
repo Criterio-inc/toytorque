@@ -24,7 +24,7 @@ const BLURB = {
   museet: 'Museet. Nattligt museum: dinosaurien, Egyptensalen, hoppet över det svarta hålet och rulltrappan upp till galleriet.',
   skejtparken: 'Skejtparken. Öppen bana i parken utan kantvallar: gena över gräset om du vågar. Bordshopp, S-kurva, stora hoppet, vågen och skålen.',
   kvarteret: 'Kvarteret. Villagatan i solsken utan höga kantstenar: gena över gräsremsan om du vågar, men akta brevlådorna, staketen och träden. Skaterampen, rondellen och genvägen genom garaget.',
-  supermarket: 'Supermarketen. Hyllgångar, kampanjhopp, lastkajen och det hala frysrummet.',
+  supermarket: 'Supermarketen. Hyllgångar utan kantvallar, där gondolerna, frysdiskarna och backstaplarna är kanterna. Kampanjhopp, lastkajen och det hala frysrummet.',
 };
 const SETTINGS_KEY = 'revolt.settings';
 
