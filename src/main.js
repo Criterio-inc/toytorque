@@ -11,6 +11,7 @@ import { kvarteret } from './level/kvarteret.js';
 import { skejtparken } from './level/skejtparken.js';
 import { supermarket } from './level/supermarket.js';
 import { stuntarena } from './level/stuntarena.js';
+import { provbana } from './level/provbana.js';
 import { CARS } from './vehicle/carDefs.js';
 import { Menu } from './ui/menu.js';
 import { attachAudio } from './audio/audio.js';
@@ -26,10 +27,12 @@ await RAPIER.init();
 const LEVELS = [lagret, kitchen, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, skejtparken];
 const params = new URLSearchParams(location.search);
 const carId = CARS[params.get('car')] ? params.get('car') : 'rasket';
-const level = LEVELS.find((l) => l.id === params.get('level')) || LEVELS[0];
+// Provbanan för höjdmotorn finns bara i dev-läge (?level=provbana)
+const DEV_LEVELS = import.meta.env.DEV ? [provbana] : [];
+const level = [...LEVELS, ...DEV_LEVELS].find((l) => l.id === params.get('level')) || LEVELS[0];
 const opponents = params.has('ai') ? Math.max(0, Math.min(7, +params.get('ai') || 0)) : 7;
 
-const game = new Game(RAPIER, { container: document.getElementById('app'), levels: LEVELS, extraLevels: [stuntarena], level, carId, opponents, difficulty: params.get('diff') || 'normal', evening: params.has('kvall') }); // ?kvall=1: kvällsvarianten direkt
+const game = new Game(RAPIER, { container: document.getElementById('app'), levels: LEVELS, extraLevels: [stuntarena, ...DEV_LEVELS], level, carId, opponents, difficulty: params.get('diff') || 'normal', evening: params.has('kvall') }); // ?kvall=1: kvällsvarianten direkt
 attachAudio(game); // procedurellt ljud, startar vid första tangent/klick
 document.getElementById('loading').remove();
 game.run();
