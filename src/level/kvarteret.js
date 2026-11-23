@@ -1,19 +1,23 @@
 import {
   HoodBatch, makeGround, addTrackSurfaces, addTrackPaint, addTrackSidewalks, addStreet, addStreetPaint,
-  addHouse, addOpenGarage, addTree, addHedge, addPicketFence, addGardenWall, addLamp, addMailbox, addHydrant,
-  addBin, addBarricade, addBrickStack, addCar, addSwingSet, addSlide, addSandbox, addIsland, addFarHouse,
+  addHouse as houseAt, addOpenGarage as garageAt, addTree as treeAt, addHedge as hedgeAt, addPicketFence,
+  addLamp as lampAt, addMailbox as mailboxAt, addHydrant as hydrantAt, addBin as binAt, addBarricade as barricadeAt,
+  addBrickStack as bricksAt, addCar as carAt, addIsland as islandAt, addFarHouse,
   addFarTrees, addLooseBall, addPlankFence, addCone, addBoomGate, addBooth, addDigger, addDirtPatch,
-  addDirtPile, addTunnel, addTrackCurb, fitShortcutOpenings, VERGE, WALK, rng,
+  addDirtPile, addTunnel, addTrackCurb, fitShortcutOpenings, setHoodGround, lifted, groundY, VERGE, WALK, rng,
 } from './hoodArt.js';
+import { hillsAt } from './terrain.js';
 import { cartonWall, canPyramid, coneRow } from './stacks.js';
 import { addSewerPipe } from './playground.js';
 
 // ---------------------------------------------------------------------------
 // Nivå: Kvarteret. Amerikanskt villakvarter en solig eftermiddag i riktig
-// skala (meter). Start vid en rödvit bom bredvid en byggplats med en stor
-// grävmaskin, plankrampen över ett grävt dike och jordtunneln genom byggkullen
-// på Maple Street, skaterampen på Oak Avenue, rondellen, genom ett öppet
-// garage och en bakgård, och bakgatan mellan plankstaketen.
+// skala (meter). Kvarteret ligger i en sluttning: Maple Street och bakgatan
+// nere i dalen, norra halvan uppe på en platå. Start vid en rödvit bom bredvid
+// en byggplats med en stor grävmaskin, plankrampen över ett grävt dike och
+// jordtunneln genom byggkullen på Maple Street, den branta backen uppför Oak
+// Avenue, rondellen på kullen, Elm Street, nerför den branta bakgården och
+// bakgatan mellan plankstaketen.
 // Två genvägar: genom ett garage och ut på baksidan (förbi rondellen) och
 // längs grusgången mellan plankstaketen till en uppfart (förbi hörnet vid
 // West Street).
@@ -27,7 +31,6 @@ const ALLEY = -14; // bakgatans z
 const YARD = -8; // genvägens x (uppfart, garage, bakgård)
 const RB = { x: OAK, z: 22, r: 8.5 }; // rondellen
 const GARAGE = { z0: 9.4, z1: 16 }; // genomfartsgaraget (bak, fram)
-const WALL_Z = 1.6; // trädgårdsmuren under plankrampen
 const START_X = -6; // startlinjen på Maple Street
 const TRENCH = { x0: 10.5, x1: 11.7 }; // diket på Maple Street (plankrampens krön)
 const TUNNEL = { x0: 22, x1: 34 }; // jordtunneln genom byggkullen på Maple Street
@@ -37,14 +40,21 @@ const PIPE = { in0: -6.2, in1: -2.6, out0: 2.2, out1: 4.4, x: 0, z: MAPLE - 3.85
 const MOUND = { x0: 17, x1: 38, z: MAPLE, dz: 11 }; // byggkullen över Maple Street
 // Genvägarna: grusgången (bakgatan → Maple) och garaget (Oak → Elm)
 const GRAVEL = { from: [-20, ALLEY], via: [[-29, -18.5], [-34.5, -25.5], [-33.5, -33]], to: [-19, MAPLE] };
-const DRIVE = { from: [OAK, 4], via: [[42.8, 11], [37, 17], [29, 23.5]], to: [20, ELM] };
+const DRIVE = { from: [OAK, 4], via: [[43, 10], [38, 16], [29, 23.5]], to: [20, ELM] };
+
+// Marken: platån i norr och kullen med rondellen och garagetomten. Backen på
+// Oak Avenue och bakgården är platåns södra slänt (z -12,5 till 5,5, högst 28 %).
+const HILLS = [
+  { terrace: true, x: 0, z: 37.75, ax: 85, az: 50.25, ex: 20, ez: 18, h: 3.2 },
+  { terrace: true, x: 44, z: 21, ax: 20, az: 15, ex: 6, ez: 9, h: 1.0 },
+];
 
 const rbv = (deg) => ({ x: RB.x + Math.cos((deg * Math.PI) / 180) * RB.r, z: RB.z + Math.sin((deg * Math.PI) / 180) * RB.r, r: 6 });
 
 export const kvarteret = {
   id: 'kvarteret',
   name: 'Kvarteret',
-  layout: 2, // öppen bana sedan 2026-11-22: äldre spökbilar gäller inte
+  layout: 3, // kuperad sedan 2026-11-23: äldre spökbilar gäller inte
   laps: 3,
   sky: 0x9fcdf2,
   skyGradient: [0x2b78d4, 0xa9d5f4, 0xe4efe6],
@@ -71,9 +81,9 @@ export const kvarteret = {
     barrierHeight: 0.15,
     barrierThick: 0.25,
     start: { x: START_X, z: MAPLE },
-    // Maple Street österut, norrut på Oak Avenue över skaterampen, moturs i
-    // rondellen, västerut på Elm Street, ner genom garaget och bakgården,
-    // bakgatan västerut och West Street tillbaka ner till Maple.
+    // Maple Street österut, uppför backen på Oak Avenue, moturs i rondellen,
+    // västerut på Elm Street, ner genom garaget och bakgården, bakgatan
+    // västerut och West Street tillbaka ner till Maple.
     corners: [
       { x: OAK, z: MAPLE, r: 9 },
       { x: OAK, z: 11, r: 6 },
@@ -92,32 +102,20 @@ export const kvarteret = {
       { at: [TRENCH.x0, MAPLE], y: 0.45, linear: true },
       { at: [TRENCH.x1 + 1.8, MAPLE], y: 0.12, linear: true },
       { at: [16.5, MAPLE], y: 0 },
-      // Skaterampen på Oak Avenue: rak ramp ända ut i kanten, glapp, landning
-      { at: [OAK, -21], y: 0 },
-      { at: [OAK, -17], y: 0.06 },
-      { at: [OAK, -10.5], y: 0.46, linear: true },
-      { at: [OAK, -9.3], y: 0.32, linear: true },
-      { at: [OAK, -6.5], y: 0.14, linear: true },
-      { at: [OAK, -1], y: 0 },
-      // Kullen på Elm Street: en plywoodpuckel med krön mitt på gatan
-      { at: [18, ELM], y: 0 },
-      { at: [11.5, ELM], y: 0.5 },
-      { at: [5, ELM], y: 0 },
-      // Plankrampen över trädgårdsmuren på bakgården
-      { at: [YARD, 8.6], y: 0 },
-      { at: [YARD, 2.6], y: 0.32 },
-      { at: [YARD, 0.6], y: 0.32 },
-      { at: [YARD, -5], y: 0 },
+      // Kullen på Elm Street: en låg och lång plywoodpuckel. Den ligger en bit
+      // väster om garagegenvägens påfart, eftersom bilarna kommer nerför kullen
+      // därifrån och kastades av vägen när puckeln låg tätt inpå.
+      { at: [15, ELM], y: 0 },
+      { at: [8.5, ELM], y: 0.45 },
+      { at: [2, ELM], y: 0 },
     ],
-    gaps: [{ from: [OAK, -10.5], to: [OAK, -9.3] }],
-    // Hörnet West Street–Maple Street är en doserad plywoodvall
-    bank: [{ at: [WEST, MAPLE], deg: 14, fade: 6 }],
+    // Båda hörnen nere på Maple Street är doserade plywoodvallar
+    bank: [{ at: [WEST, MAPLE], deg: 14, fade: 6 }, { at: [OAK, MAPLE], deg: 14, fade: 6 }],
+    terrain: { hills: HILLS, blend: 3 },
     // Öppen bana: ingen kantsten som stoppar bilarna, bara en låg rundad
     // kantsten (ritad) och gräsremsor, trottoarer och trädgårdar intill.
-    // Skaterampens hopp har kvar sina kanter, och den doserade hörnvallen
-    // sluttar ner mot marken.
+    // Den doserade hörnvallen sluttar ner mot marken.
     freeRoam: true,
-    closed: [{ from: [OAK, -16], to: [OAK, -2] }],
     embank: [{ from: [WEST, -27], to: [-30, MAPLE], slope: 2.5 }],
     // Breda kontrollpunkter: den som genar över en gräsmatta räknas ändå
     checkpointHalf: 9,
@@ -134,7 +132,10 @@ export const kvarteret = {
         ],
       },
       // Garaget: in från Oak Avenue, genom garaget, över bakgården till Elm Street
-      { ...DRIVE, r: 6, roadHalf: 1.8, ai: 0.4 },
+      // Den följer marken uppe på kullen, så att garaget står på vägen. Inga
+      // kantstenar: i slänten svävade de över marken och bilar kilade in sig
+      // under dem. Plankstaketen avgränsar genvägen.
+      { ...DRIVE, r: 7, roadHalf: 1.8, ai: 0.4, followGround: true, freeRoam: true },
     ],
   },
 
@@ -177,13 +178,30 @@ const FRONTAGE = [
   { a: [WEST, -100], b: [WEST, 100] },
 ];
 
-function buildHood({ scene, world, RAPIER, track, night = false }) {
+// Saker som står på marken lyfts till markens höjd där de står
+const onGround = (fn) => (B, world, RAPIER, o) => lifted(o.y ?? groundY(o.x, o.z), () => fn(B, world, RAPIER, o));
+const addHouse = onGround(houseAt), addOpenGarage = onGround(garageAt), addTree = onGround(treeAt);
+const addHedge = onGround(hedgeAt), addLamp = onGround(lampAt), addMailbox = onGround(mailboxAt);
+const addHydrant = onGround(hydrantAt), addBin = onGround(binAt), addBarricade = onGround(barricadeAt);
+const addBrickStack = onGround(bricksAt), addCar = onGround(carAt), addIsland = onGround(islandAt);
+// Vägpunkt som ligger över marken (puckel eller ramp), inte bara uppe på en kulle
+const raised = (p) => p.y - hillsAt(HILLS, p.x, p.z) > 0.1;
+
+function buildHood(opts) {
+  setHoodGround(opts.track.ground);
+  try { return buildStreets(opts); } finally { setHoodGround(null); }
+}
+
+function buildStreets({ scene, world, RAPIER, track, night = false }) {
   const B = scene ? new HoodBatch() : null;
   if (B) B.night = night; // kvällsvarianten tänder lyktorna
   const r = rng(2024);
   const { roadHalf } = track;
   const curbOut = roadHalf + track.barrier.thick;
   const near = (x, z) => Math.sqrt(track.nearest(x, z).d2);
+  // Avstånd från datorförarnas ideallinje: brevlådor och avspärrningar står
+  // inte där linjen går ut över gräsremsan, annars fastnar bilarna i dem
+  const fromLine = (x, z) => { const q = track.nearest(x, z); return Math.abs(q.lateral - track.line[q.index]); };
   const scs = track.shortcuts || [];
   const scDist = (x, z) => { let d = Infinity; for (const sc of scs) d = Math.min(d, Math.sqrt(sc.path.nearest(x, z).d2)); return d; };
   const nearSc = (x, z) => scDist(x, z) - 1.8; // avstånd utanför genvägarnas vägkant
@@ -192,7 +210,7 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
   // Flacka av- och påfarter: öppna vallarna där vägarna går ihop
   fitShortcutOpenings(B, world, RAPIER, track);
 
-  makeGround(scene, world, RAPIER, { size: 180 });
+  makeGround(scene, world, RAPIER, { size: 180, ground: track.ground });
 
 
   // --- banans zoner --------------------------------------------------------
@@ -205,7 +223,7 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
   const zones = track.pts.map(zoneOf);
   const kindAt = (i) => {
     const p = track.pts[i];
-    if (p.y > 0.01) return 'plywood';
+    if (raised(p)) return 'plywood';
     if (zones[i] === 'tunnel') return p.x > TUNNEL.x0 - 0.6 && p.x < TUNNEL.x1 + 0.6 ? 'dirtDark' : 'dirt';
     if (zones[i] === 'alley') return 'concrete';
     if (zones[i] === 'yard') return p.z > GARAGE.z0 - 0.2 ? 'concrete' : 'pavers';
@@ -215,13 +233,13 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
   // Genvägarnas ytor: grus, plankramp och uppfart; garageuppfart och trädgårdsgång
   if (scs[0]) addTrackSurfaces(B, scs[0].path, (i) => {
     const p = scs[0].path.pts[i];
-    return p.y > 0.01 ? 'plywood' : p.z > -21 || p.z < -33.5 ? 'concrete' : 'dirt';
+    return raised(p) ? 'plywood' : p.z > -21 || p.z < -33.5 ? 'concrete' : 'dirt';
   });
   let garage = null;
   if (scs[1]) {
     const P = scs[1].path;
     const gi = P.nearest(33, 20.3).index, t = P.tangents[gi];
-    garage = { x: P.pts[gi].x, z: P.pts[gi].z, rot: Math.atan2(t.x, t.z), d: 6.4, w: 5.4, gi };
+    garage = { x: P.pts[gi].x, z: P.pts[gi].z, rot: Math.atan2(t.x, t.z), d: 6.4, w: 6.6, gi }; // brett: bilarna kommer in snett efter krönet
     const exit = P.dist[gi] + garage.d / 2 + 0.6;
     addTrackSurfaces(B, P, (i) => (P.dist[i] < exit || P.dist[i] > P.length - 5 ? 'concrete' : 'pavers'));
   }
@@ -235,7 +253,7 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
 
   // --- linjer och övergångsställen ------------------------------------------
   const idx = (x, z) => track.nearest(x, z).index;
-  const crosswalks = [idx(-30, MAPLE), idx(OAK, -29), idx(32, ELM), idx(3, ELM), idx(WEST, -24)].filter((i) => track.pts[i].y < 0.01);
+  const crosswalks = [idx(-30, MAPLE), idx(OAK, -29), idx(32, ELM), idx(3, ELM), idx(WEST, -24)].filter((i) => !raised(track.pts[i]));
   const nearIdx = (i, list, span) => list.some((j) => { const d = Math.abs(i - j); return Math.min(d, track.N - d) < span; });
   const centre = (i) => {
     const p = track.pts[i];
@@ -264,7 +282,8 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
       free: (x, z, what) => {
         const d = near(x, z);
         if (what === 'asphalt') return zoneOf({ x, z }) === 'street' || d > curbOut;
-        if (what === 'curb') return d > curbOut + 0.15 && !inCrossing(x, z, 2.3) && !armBand(x, z, 0.3, A) && !inRB(x, z, 1);
+        // Nedfasad kantsten närmast banan: en bil som går brett ska inte fastna
+        if (what === 'curb') return d > curbOut + 3.5 && !inCrossing(x, z, 2.3) && !armBand(x, z, 0.3, A) && !inRB(x, z, 1);
         return d > curbOut + VERGE + 0.2 && !armBand(x, z, 0.25 + VERGE + 0.1, A) && !inRB(x, z, 1);
       },
     });
@@ -275,7 +294,8 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
     if (A.fromTrack) {
       const tx = (A.b[0] - A.a[0]) / len, tz = (A.b[1] - A.a[1]) / len;
       let s = 1;
-      while (s < 20 && (near(A.a[0] + tx * s, A.a[1] + tz * s) < curbOut + 0.9 || near(A.a[0] + tx * s - tz * 1.6, A.a[1] + tz * s + tx * 1.6) < curbOut + 0.6 || near(A.a[0] + tx * s + tz * 1.6, A.a[1] + tz * s - tx * 1.6) < curbOut + 0.6)) s += 0.25;
+      while (s < 20 && (near(A.a[0] + tx * s, A.a[1] + tz * s) < curbOut + 0.9 || fromLine(A.a[0] + tx * s, A.a[1] + tz * s) < 3.4 || near(A.a[0] + tx * s - tz * 1.6, A.a[1] + tz * s + tx * 1.6) < curbOut + 0.6 || near(A.a[0] + tx * s + tz * 1.6, A.a[1] + tz * s - tx * 1.6) < curbOut + 0.6)) s += 0.25;
+      s += 5; // en bit in på sidogatan: den som går brett i en sväng ska hinna vända
       for (const l of [-1, 1]) addBarricade(B, world, RAPIER, { x: A.a[0] + tx * s - tz * l, z: A.a[1] + tz * s + tx * l, rot: Math.atan2(tx, tz) + Math.PI / 2, w: 1.8 });
     }
   }
@@ -297,7 +317,7 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
   // gräsremsan utan att studsa
   for (const side of [1, -1]) addTrackCurb(B, null, RAPIER, {
     track, i0: 0, i1: track.N - 1, side, h: 0.035, t: 0.25,
-    ok: (x, z) => zoneOf({ x, z }) === 'street' && track.pts[track.nearest(x, z).index].y < 0.01 && nearSc(x, z) > 0.3 && !inRB(x, z, 0.2),
+    ok: (x, z) => zoneOf({ x, z }) === 'street' && !raised(track.pts[track.nearest(x, z).index]) && nearSc(x, z) > 0.3 && !inRB(x, z, 0.2),
   });
 
   // --- hus längs gatorna ------------------------------------------------------
@@ -317,7 +337,13 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
     return out;
   };
   const streetBand = 2 + 0.25 + VERGE + WALK + 0.8;
-  const rectFree = (R) => rectPoints(R).every(([x, z]) => near(x, z) > streetBand && !armBand(x, z, streetBand - 2) && !inRB(x, z, 9) && !blocked(x, z, 1.2) && Math.abs(x) < 120 && Math.abs(z) < 120);
+  // Husen står på plan mark: tomten (med framsidan ner mot gatan) får luta högst en halv meter
+  const footY = (R) => Math.min(...rectPoints(R).map(([x, z]) => groundY(x, z)));
+  const flatLot = (R) => {
+    const hs = rectPoints({ ...R, hd: R.hd + 5 }).map(([x, z]) => groundY(x, z));
+    return Math.max(...hs) - Math.min(...hs) < 0.5;
+  };
+  const rectFree = (R) => flatLot(R) && rectPoints(R).every(([x, z]) => near(x, z) > streetBand && !armBand(x, z, streetBand - 2) && !inRB(x, z, 9) && !blocked(x, z, 1.2) && Math.abs(x) < 120 && Math.abs(z) < 120);
 
   // Reserverat: genvägens tomt (garage, hus och bakgård med lekplats),
   // byggplatsen, grusgången, garagetomten och byggkullen över Elm
@@ -353,7 +379,7 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
         R.x += -nx * 0.9; R.z += -nz * 0.9; // täck verandan framför huset
         if (rectFree(R)) {
           rects.push(R);
-          const h = { x: cx, z: cz, rot, w, d, garage, toStreet: off - curbOut, seed: seed++, front, street: F, side, nx, nz, rx, rz };
+          const h = { x: cx, z: cz, y: footY(R), rot, w, d, garage, toStreet: off - curbOut, seed: seed++, front, street: F, side, nx, nz, rx, rz };
           h.hoop = garage && r() < 0.18;
           houses.push(h);
           s += lotW;
@@ -363,14 +389,14 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
   }
 
   // Genvägens hus och genomfartsgaraget
-  const yardHouse = { x: 0.6, z: 12.6, rot: 0, w: 10.2, d: 8, garage: null, toStreet: ELM - curbOut - 12.6, seed: 5, siding: 0xf3e7c4, roof: 0x6b5143, accent: 0x24344f, chimney: true };
+  const yardHouse = { x: 0.6, z: 12.6, y: footY({ x: 0.6, z: 12.6, rot: 0, hw: 5.1, hd: 4 }), rot: 0, w: 10.2, d: 8, garage: null, toStreet: ELM - curbOut - 12.6, seed: 5, siding: 0xf3e7c4, roof: 0x6b5143, accent: 0x24344f, chimney: true };
   addHouse(B, world, RAPIER, yardHouse);
   addOpenGarage(B, world, RAPIER, { x: YARD, z: (GARAGE.z0 + GARAGE.z1) / 2, rot: 0, w: 6.6, d: GARAGE.z1 - GARAGE.z0, siding: 0xf3e7c4, roof: 0x6b5143 });
 
   for (const h of houses) addHouse(B, world, RAPIER, h);
   // Husen vid genvägarna: villan bredvid grusgångens uppfart och villan vid garaget
-  addHouse(B, world, RAPIER, { x: -20, z: -26, rot: Math.PI, w: 9.4, d: 7.6, garage: null, toStreet: 14 - curbOut, seed: 41, siding: 0xcfe0ea, roof: 0x4f5a66, accent: 0x6a2424 });
-  addHouse(B, world, RAPIER, { x: 30.6, z: -1.2, rot: Math.PI / 2, w: 9, d: 7.6, garage: null, toStreet: OAK - 30.6 - curbOut, seed: 42, siding: 0xf0d3c6, roof: 0x55575c, accent: 0x24344f });
+  addHouse(B, world, RAPIER, { x: -20, z: -26, y: footY({ x: -20, z: -26, rot: 0, hw: 4.7, hd: 3.8 }), rot: Math.PI, w: 9.4, d: 7.6, garage: null, toStreet: 14 - curbOut, seed: 41, siding: 0xcfe0ea, roof: 0x4f5a66, accent: 0x6a2424 });
+  addHouse(B, world, RAPIER, { x: 30.6, z: -1.2, y: footY({ x: 30.6, z: -1.2, rot: Math.PI / 2, hw: 4.5, hd: 3.8 }), rot: Math.PI / 2, w: 9, d: 7.6, garage: null, toStreet: OAK - 30.6 - curbOut, seed: 42, siding: 0xf0d3c6, roof: 0x55575c, accent: 0x24344f });
   if (garage) addOpenGarage(B, world, RAPIER, { x: garage.x, z: garage.z, rot: garage.rot + Math.PI, w: garage.w, d: garage.d, siding: 0xf0d3c6, roof: 0x55575c });
 
   // Fullstora bilar: en pickup på en uppfart vid Maple, en personbil på uppfarten intill
@@ -421,11 +447,12 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
     // Brevlåda vid uppfarten, ibland soptunnor (tömningsdag)
     const mbX = gs ? gs * (h.w / 2 + 3.1) - gs * 3.1 : 1.4;
     const [mx, mz] = local(h, mbX, h.toStreet - VERGE / 2);
-    if (near(mx, mz) > curbOut + 0.25 && near(mx, mz) < curbOut + VERGE + 0.6) addMailbox(B, world, RAPIER, { x: mx, z: mz, rot: h.rot, seed: h.seed, color: [0x2b2b2b, 0x24344f, 0x4a5a4a, 0x7a2a22][h.seed % 4] });
+    if (near(mx, mz) > curbOut + 0.25 && near(mx, mz) < curbOut + VERGE + 0.6 && fromLine(mx, mz) > 2.2 && Math.hypot(mx - DRIVE.to[0], mz - DRIVE.to[1]) > 15) addMailbox(B, world, RAPIER, { x: mx, z: mz, rot: h.rot, seed: h.seed, color: [0x2b2b2b, 0x24344f, 0x4a5a4a, 0x7a2a22][h.seed % 4] });
     if (gs && r() < 0.35) {
       for (const k2 of [0, 1]) {
-        const [bx, bz] = local(h, gs * (h.w / 2 + 3.1) + gs * (3.0 + k2 * 0.75), h.toStreet - 0.75 + 0);
-        if (near(bx, bz) > curbOut + 0.45) addBin(B, world, RAPIER, { x: bx, z: bz, rot: h.rot, color: k2 ? 0x2a5d9a : 0x2d6a3e });
+        // Inne på gräsmattan, inte vid gräsremsan där bilarna tar ut svängarna
+        const [bx, bz] = local(h, gs * (h.w / 2 + 3.1) + gs * (3.0 + k2 * 0.75), h.toStreet - 2.6);
+        if (near(bx, bz) > curbOut + VERGE + 1) addBin(B, world, RAPIER, { x: bx, z: bz, rot: h.rot, color: k2 ? 0x2a5d9a : 0x2d6a3e });
       }
     }
   }
@@ -450,13 +477,13 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
   const step = Math.round(13 / track.spacing);
   let lampSide = 1;
   for (let i = 4; i < track.N; i += step) {
-    if (zones[i] !== 'street' || track.pts[i].y > 0.01 || nearIdx(i, crosswalks, 6)) continue;
+    if (zones[i] !== 'street' || raised(track.pts[i]) || nearIdx(i, crosswalks, 6)) continue;
     for (const side of [1, -1]) {
       const sp = vergeSpot(i, side);
       if (sp && r() < 0.75) trees.push({ x: sp[0], z: sp[1], h: 8 + r() * 3.5, s: 2.6 + r() * 1.2, seed: seed++, tint: r() * 0.5 });
     }
     const j = (i + Math.round(step / 2)) % track.N;
-    const sp = zones[j] === 'street' && track.pts[j].y < 0.01 ? vergeSpot(j, lampSide) : null;
+    const sp = zones[j] === 'street' && !raised(track.pts[j]) ? vergeSpot(j, lampSide) : null;
     if (sp) {
       const n = track.normals[j];
       addLamp(B, world, RAPIER, { x: sp[0], z: sp[1], rot: Math.atan2(-n.x * lampSide, -n.z * lampSide) });
@@ -470,33 +497,24 @@ function buildHood({ scene, world, RAPIER, track, night = false }) {
     if (vergeFree(hx, hz)) addHydrant(B, world, RAPIER, { x: hx, z: hz });
   }
 
-  // --- genvägen: uppfart, garage, bakgård med mur, lekplats och staket -------
+  // --- genvägen: uppfart, garage, bakgård i slänten och staket ----------------
   // Staket mot grannen väster om bakgården och längs bakgatan
   const fenceW = YARD - curbOut - 0.45;
   addPicketFence(B, world, RAPIER, { points: [[fenceW, GARAGE.z0 - 0.3], [fenceW, ALLEY + curbOut + 1.6], [-14.5, ALLEY + curbOut + 1.6]] });
   addPicketFence(B, world, RAPIER, { points: [[-5.6, ALLEY + 2.7], [6.3, ALLEY + 2.7], [6.3, GARAGE.z0 - 1]] });
   addPicketFence(B, world, RAPIER, { points: [[-14.5, ALLEY - curbOut - 1.2], [YARD + 12, ALLEY - curbOut - 1.2]] });
-  // Muren under plankrampen och patio vid huset
-  addGardenWall(B, world, RAPIER, { h: 0.22, x0: fenceW + 0.2, z0: WALL_Z, x1: YARD - curbOut - 0.05, z1: WALL_Z });
-  addGardenWall(B, world, RAPIER, { h: 0.22, x0: YARD + curbOut + 0.05, z0: WALL_Z, x1: 6.1, z1: WALL_Z });
-  addSandbox(B, world, RAPIER, { x: -1.6, z: -5.6, rot: 0.15, s: 2 });
-  addSwingSet(B, world, RAPIER, { x: 3.4, z: -3.2, rot: 0.05 });
-  addSlide(B, world, RAPIER, { x: 2.6, z: 4.6, rot: Math.PI / 2 });
-  for (const [x, z, k] of [[-3.6, 2.2, 1], [3.6, -8.6, 2], [-4.6, -9.6, 3], [5.6, 7.4, 4]]) addBrickStack(B, world, RAPIER, { x, z, layers: k % 3 + 1, seed: k });
+  // Bakgården är en brant gräsbacke med fruktträd och tegel som blev över
+  // från bygget
+  for (const [x, z, k] of [[-3.6, 6.2, 1], [3.6, -10.2, 2], [-4.6, -11, 3], [5.6, 7.4, 4]]) addBrickStack(B, world, RAPIER, { x, z, layers: k % 3 + 1, seed: k });
   trees.push({ x: 1.5, z: -9.4, h: 9, s: 3.2, seed: 901, tint: 0.2 });
+  trees.push({ x: 2.4, z: -2.5, h: 6.5, s: 2.6, seed: 902, tint: 0.4 });
+  trees.push({ x: -3.2, z: 0.8, h: 6, s: 2.3, seed: 903, tint: 0.6 });
   addHedge(B, world, RAPIER, { x: YARD + curbOut + 0.55, z: GARAGE.z1 + 2.6, w: 4.2, d: 0.6, h: 0.75, rot: Math.PI / 2 });
   addHedge(B, world, RAPIER, { x: YARD - curbOut - 0.55, z: GARAGE.z1 + 2.6, w: 4.2, d: 0.6, h: 0.75, rot: Math.PI / 2 });
   // Soptunnor längs bakgatan
   for (const x of [-34, -32.9, -27, -25.9, -19.5, -18.4]) addBin(B, world, RAPIER, { x, z: ALLEY + 3.0, rot: Math.PI, color: [0x2d6a3e, 0x2a5d9a, 0x3a3a3a][Math.abs(Math.round(x)) % 3] });
 
   buildSite({ B, scene, world, RAPIER, track, near, scDist, nearSc, idx, curbOut });
-
-  // Tegelstenar under rampernas kant (hemmabyggen på Maple och Oak)
-  const gapStarts = track.isGap.map((g, i) => (g && !track.isGap[(i - 1 + track.N) % track.N] ? i : -1)).filter((i) => i >= 0);
-  for (const gi of gapStarts) for (const side of [1, -1]) for (const k of [-6, -14, -24]) {
-    const pz = track.poseAt(gi + k, side * (curbOut + 0.3));
-    addBrickStack(B, world, RAPIER, { x: pz.x, z: pz.z, layers: Math.max(1, Math.round(track.pts[(gi + k + track.N) % track.N].y / 0.07)), seed: k + side * 3 + 50 });
-  }
 
   // --- träd, horisont och moln ----------------------------------------------
   for (const t of trees) addTree(B, world, RAPIER, t);
@@ -583,7 +601,7 @@ function buildSite({ B, scene, world, RAPIER, track, near, scDist, nearSc, idx, 
     if (cur.length > 1) out.push(cur);
     return out;
   };
-  const fence = (pts, ok) => { for (const run of runs(pts, ok)) addPlankFence(B, world, RAPIER, { points: run }); };
+  const fence = (pts, ok) => { for (const run of runs(pts, ok)) addPlankFence(B, world, RAPIER, { points: run, ground: track.ground }); };
   for (const side of [-1, 1]) {
     const line = [];
     for (let x = -14.5; x >= -36; x -= 0.5) line.push([x, ALLEY + side * 2.12]);

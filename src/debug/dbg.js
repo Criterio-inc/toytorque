@@ -7,6 +7,12 @@ import { STEP } from '../core/physics.js';
 
 export function attachDebug(game) {
   const car = () => game.player;
+  // Kuperade banor: bilen ställs på vägen eller marken, inte på nollhöjd
+  const surfaceY = (x, z) => {
+    const T = game.track, n = T.nearest(x, z);
+    const road = n.d2 < (T.roadHalf + 0.5) ** 2 ? T.pts[n.index].y : -Infinity;
+    return Math.max(road, T.ground ? T.ground.heightAt(x, z) : 0);
+  };
   window.DBG = {
     game,
     // Kör n fysiksteg med givna controls (eller tangentbordet) och rendera
@@ -27,7 +33,7 @@ export function attachDebug(game) {
         race: game.race.state, lap: r.lap, nextCp: r.nextCp, pos: r.position, frames: game.frames,
       };
     },
-    place(x, z, heading = 0) { car().place({ x, y: 0.2, z, heading }); game.chase.snap = true; },
+    place(x, z, heading = 0) { car().place({ x, y: surfaceY(x, z) + 0.2, z, heading }); game.chase.snap = true; },
     gridPose: () => game.track.gridSlot(0),
     // Vapen direkt i handen och avfyra (bomben tänds på bilen)
     fire(id, car = game.p1 || game.cars[game.cars.length - 1]) {
@@ -69,7 +75,7 @@ export function attachDebug(game) {
     shotAt(x, z, deg = 0) {
       game.race.skipIntro();
       this.startRace();
-      car().place({ x, y: 0.2, z, heading: (deg * Math.PI) / 180 });
+      car().place({ x, y: surfaceY(x, z) + 0.2, z, heading: (deg * Math.PI) / 180 });
       for (let k = 0; k < 90; k++) game.step({ throttle: 0, steer: 0 });
       game.chase.snap = true;
       game.paused = true;

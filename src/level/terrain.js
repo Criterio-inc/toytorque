@@ -55,6 +55,7 @@ export function buildTerrainData(track, spec, size) {
   const reach = roadHalf + blend + B;
   const R = Math.ceil(reach / B);
 
+  const extra = (track.shortcuts || []).map((sc) => sc.path).filter((P) => P.terrain);
   const heights = new Float32Array((n + 1) * (n + 1));
   for (let ix = 0; ix <= n; ix++) {
     for (let iz = 0; iz <= n; iz++) {
@@ -67,7 +68,7 @@ export function buildTerrainData(track, spec, size) {
         const list = buckets.get(key(bx + a, bz + b));
         if (list) for (const i of list) { const d = (pts[i].x - x) ** 2 + (pts[i].z - z) ** 2; if (d < bd) { bd = d; best = i; } }
       }
-      let h = g;
+      let h = g, uMain = 1;
       if (best >= 0) {
         const lat = (x - pts[best].x) * normals[best].x + (z - pts[best].z) * normals[best].z;
         // Vägens plan (med dosering) fortsätter en bit ut, så att kanten möter marken
@@ -83,6 +84,22 @@ export function buildTerrainData(track, spec, size) {
         const out = Math.max(0, Math.abs(lat) - roadHalf - 0.3);
         const u = Math.min(1, out / blend);
         h = roadY + (g - roadY) * u * u * (3 - 2 * u);
+        uMain = u;
+      }
+      // Genvägar som följer marken: marken tonas mot dem också, annars ligger
+      // genvägen som en list i backen och bilar kan fastna med underredet
+      for (const P of extra) {
+        const q = P.nearest(x, z), d = Math.sqrt(q.d2);
+        const out = Math.max(0, d - P.roadHalf - 0.3);
+        if (out >= blend) continue;
+        const i = q.index, t = P.tangents[i];
+        const along = (x - P.pts[i].x) * t.x + (z - P.pts[i].z) * t.z;
+        const j = Math.max(0, Math.min(P.N - 2, i + (along > 0 ? 1 : -1)));
+        const ds = Math.hypot(P.pts[j].x - P.pts[i].x, P.pts[j].z - P.pts[i].z) || 1;
+        const w = Math.min(1, Math.abs(along) / ds);
+        const roadY = P.pts[i].y * (1 - w) + P.pts[j].y * w - 0.012;
+        const u = out / blend;
+        if (u < uMain) { h = roadY + (g - roadY) * u * u * (3 - 2 * u); uMain = u; }
       }
       heights[iz + ix * (n + 1)] = h;
     }

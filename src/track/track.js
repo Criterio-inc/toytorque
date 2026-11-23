@@ -299,7 +299,7 @@ export function buildTrackData(spec) {
 // Genväg: en öppen vägsträcka från huvudbanans punkt A via mellanpunkter till
 // punkt B. Byggs som ett eget "data"-objekt med samma form som huvudbanan så
 // att väg, vallar, ramper och hopp fungerar likadant. Spec:
-//   { from:[x,z], to:[x,z], via:[[x,z],...], r, roadHalf, elevation, gaps, ai }
+//   { from:[x,z], to:[x,z], via:[[x,z],...], r, roadHalf, elevation, gaps, ai, followGround, freeRoam }
 // elevation/gaps anges som {at:[x,z]} på genvägen (eller andel 0..1).
 // ---------------------------------------------------------------------------
 function buildShortcut(main, sc, A, B, s) {
@@ -322,8 +322,11 @@ function buildShortcut(main, sc, A, B, s) {
     for (let i = 0; i < N - 1; i++) { const d = (flat[i].x - k[0] * s) ** 2 + (flat[i].z - k[1] * s) ** 2; if (d < bd) { bd = d; b = i; } }
     return frac(b);
   };
-  // Höjd: från huvudbanans höjd vid A till höjden vid B, med egna nycklar emellan
-  const keys = [[0, pa.y, false], ...(sc.elevation || []).map((e) => [fracAt(e.at ?? e[0]), e.y ?? e[1], !!(e.linear ?? e[2])]), [1, pb.y, false]].sort((a, b) => a[0] - b[0]);
+  // Höjd: från huvudbanans höjd vid A till höjden vid B, med egna nycklar emellan.
+  // Med followGround räknas höjderna ovanför marken och marken läggs till
+  // sist; annars går genvägen rakt mellan ändarnas höjder (som förut).
+  const G = (sc.followGround && main.groundAt) || (() => 0);
+  const keys = [[0, pa.y - G(pa.x, pa.z), false], ...(sc.elevation || []).map((e) => [fracAt(e.at ?? e[0]), e.y ?? e[1], !!(e.linear ?? e[2])]), [1, pb.y - G(pb.x, pb.z), false]].sort((a, b) => a[0] - b[0]);
   const heightAt = (f) => {
     let k = keys.findIndex((e) => e[0] > f);
     if (k <= 0) return k === 0 ? keys[0][1] : keys[keys.length - 1][1];
@@ -332,11 +335,28 @@ function buildShortcut(main, sc, A, B, s) {
     return a[1] + (b[1] - a[1]) * (b[2] ? u : u * u * (3 - 2 * u));
   };
   const ranges = (sc.gaps || []).map((g) => [fracAt(g.from), fracAt(g.to)]);
-  const pts = flat.map((p, i) => ({ x: p.x, y: heightAt(frac(i)), z: p.z }));
+  const pts = flat.map((p, i) => ({ x: p.x, y: heightAt(frac(i)) + G(p.x, p.z), z: p.z }));
+  if (sc.followGround) {
+    // Huvudbanans höjd avviker några cm från marken. Där vägarna ligger kant
+    // i kant tar genvägen huvudbanans höjd, annars blir det ett trappsteg
+    // mellan vägytorna som en bil kan fastna på.
+    // Bara huvudbanan kring av- och påfarten räknas, inte andra delar av banan som råkar ligga nära
+    const M = main.pts.length, around = [];
+    for (const c of [A, B]) for (let k = -40; k <= 40; k++) around.push((c + k + M) % M);
+    const near = (x, z) => { let b = around[0], bd = Infinity; for (const k of around) { const d = (main.pts[k].x - x) ** 2 + (main.pts[k].z - z) ** 2; if (d < bd) { bd = d; b = k; } } return [main.pts[b].y, Math.sqrt(bd)]; };
+    const touch = main.roadHalf + roadHalf;
+    for (let i = 0; i < N; i++) {
+      const [y, d] = near(pts[i].x, pts[i].z);
+      const u = Math.max(0, Math.min(1, (d - touch) / (4 * s)));
+      const w = u * u * (3 - 2 * u);
+      pts[i].y = (y + 0.008) * (1 - w) + pts[i].y * w; // 8 mm över, så att ytorna inte flimrar
+    }
+  }
   const isGap = pts.map((_, i) => i === N - 1 || ranges.some(([a, b]) => frac(i) >= a && frac(i) <= b));
   // Utan kanter närmast huvudbanan; en sned påfart behöver längre öppen bit (sc.merge, meter)
   const merge = Math.round((sc.merge ?? roadHalf * 2.4) / spacing);
-  const isOpen = pts.map((_, i) => i <= merge || i >= N - 1 - merge);
+  // sc.freeRoam: genvägen har inga kanter alls (staket eller hus avgränsar den)
+  const isOpen = pts.map((_, i) => !!sc.freeRoam || i <= merge || i >= N - 1 - merge);
   const bank = new Float32Array(N), tanB = new Float32Array(N); // genvägar doseras inte
   const tangents = [], normals = [];
   for (let i = 0; i < N; i++) {
@@ -369,6 +389,8 @@ function buildShortcut(main, sc, A, B, s) {
   return {
     pts, tangents, normals, dist, length, N, roadHalf, spacing, isGap, isOpen, line, lineSpeed, bank, tanB,
     barrier: main.barrier, open: true,
+    // En genväg som följer marken bärs av marken: inga pelare under den
+    terrain: !!(sc.followGround && main.groundAt), groundAt: sc.followGround ? main.groundAt : null,
     surfaceY(i) { return pts[Math.max(0, Math.min(N - 2, i))].y; },
     nearest(x, z, hint = -1, window = 40, y = null) {
       let best = 0, bestD = Infinity;

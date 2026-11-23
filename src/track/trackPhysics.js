@@ -47,7 +47,11 @@ function physicsFor(world, RAPIER, data, body) {
   }
   // Rampbitarna vid ett glapp fylls med massiva block (vägytan är bara ett
   // skal), så att en bil som inte når över inte kan glida in under rampen.
-  const { isGap, N } = data;
+  // En genvägs sista punkt är markerad som glapp bara för att vägen tar slut
+  // där. Den är ingen ramp, och på terräng skulle blocken ner till nollhöjd
+  // sticka upp bredvid huvudbanan.
+  const { N } = data;
+  const isGap = data.open ? data.isGap.map((g, k) => g && k !== N - 1) : data.isGap;
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N;
     const edgeAt = !isGap[i] && isGap[j] ? i : isGap[i] && !isGap[j] ? j : -1;

@@ -23,7 +23,7 @@ const BLURB = {
   leksaksaffaren: 'Leksaksaffären. Nattöppet bland hyllorna utan kantvallar: regnbågsrampen, borgtunneln vid roboten och hoppet.',
   museet: 'Museet. Nattligt museum där montrarna och pelarna är kanterna: dinosaurien, Egyptensalen, hoppet över det svarta hålet och rulltrappan upp till galleriet.',
   skejtparken: 'Skejtparken. Öppen bana i parken utan kantvallar: bordshopp, S-kurvan över puckeln, stora hoppet och sedan uppför till platån med skålen. Därifrån bär det brant nedför.',
-  kvarteret: 'Kvarteret. Villagatan i solsken utan höga kantstenar: gena över gräsremsan om du vågar, men akta brevlådorna, staketen och träden. Skaterampen, rondellen och genvägen genom garaget.',
+  kvarteret: 'Kvarteret. Villagatan i solsken utan höga kantstenar: gena över gräsremsan om du vågar, men akta brevlådorna, staketen och träden. Den branta backen uppför Oak Avenue, rondellen på kullen och nerför bakgården. Genvägen går genom garaget.',
   supermarket: 'Supermarketen. Hyllgångar utan kantvallar, där gondolerna, frysdiskarna och backstaplarna är kanterna. Kampanjhopp, lastkajen och det hala frysrummet.',
 };
 const SETTINGS_KEY = 'revolt.settings';
