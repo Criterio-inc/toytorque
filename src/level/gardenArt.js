@@ -4,7 +4,6 @@ import { G, groups } from '../core/physics.js';
 import { rng } from './warehouseArt.js';
 import { bankY } from '../track/track.js';
 import { crownGeos } from './foliage.js';
-import { terrainGeometry } from './terrain.js';
 
 // ---------------------------------------------------------------------------
 // Procedurell grafik för den botaniska trädgården: gräsmatta, grusgång,
@@ -536,11 +535,9 @@ function woodMaterial() {
 // Mark: gräsmatta inne i växthuset och en park utanför glaset
 // ===========================================================================
 
-// ground: terrängen (level/terrain.js). Då står terrängen för kollisionen och
-// gräsmattan ritas på dess rutnät.
-export function makeLawn(scene, world, RAPIER, { size, ground = null }) {
+export function makeLawn(scene, world, RAPIER, { size }) {
   const half = size / 2;
-  if (world && !ground) {
+  if (world) {
     const body = fixedBody(world, RAPIER);
     world.createCollider(
       RAPIER.ColliderDesc.cuboid(half, 0.5, half).setTranslation(0, -0.5, 0).setFriction(1).setCollisionGroups(groups(G.WORLD)),
@@ -551,9 +548,8 @@ export function makeLawn(scene, world, RAPIER, { size, ground = null }) {
   const map = lawnTexture().clone();
   map.repeat.set(size / LAWN_TILE, size / LAWN_TILE);
   map.needsUpdate = true;
-  let geo;
-  if (ground) { geo = terrainGeometry(ground, LAWN_TILE); map.repeat.set(1, 1); }
-  else { geo = new THREE.PlaneGeometry(size, size, 48, 48); geo.rotateX(-Math.PI / 2); }
+  const geo = new THREE.PlaneGeometry(size, size, 48, 48);
+  geo.rotateX(-Math.PI / 2);
   // Stora färgskiftningar i vertexfärger så upprepningen inte syns
   const p = geo.attributes.position;
   const col = new Float32Array(p.count * 3);
@@ -718,13 +714,12 @@ export function waterRims({ pond, channel, rimW = 0.35, rimH = 0.3 }) {
   const n = 40;
   for (let k = 0; k < n; k++) {
     const th = ((k + 0.5) / n) * Math.PI * 2;
-    if (channel && Math.cos(th) > 0 && Math.abs(Math.sin(th)) * R < channel.half + rimW * 0.5) continue;
+    if (Math.cos(th) > 0 && Math.abs(Math.sin(th)) * R < channel.half + rimW * 0.5) continue;
     out.push({
       x: pond.x + Math.cos(th) * R, z: pond.z + Math.sin(th) * R,
       w: (2 * Math.PI * R) / n + 0.03, d: rimW, h: rimH, rotY: -(th + Math.PI / 2),
     });
   }
-  if (!channel) return out; // en damm utan kanal
   const x0 = pond.x + Math.sqrt(Math.max(0, R * R - (channel.half + rimW / 2) ** 2)) - 0.1;
   const len = channel.x1 - x0;
   for (const s of [1, -1]) out.push({ x: x0 + len / 2, z: channel.z + s * (channel.half + rimW / 2), w: len, d: rimW, h: rimH });
@@ -777,13 +772,11 @@ export function makeWater(scene, { pond, channel }) {
   disc.rotateX(-Math.PI / 2);
   disc.translate(pond.x, WATER_Y, pond.z);
   surf.push(disc);
-  if (channel) {
-    const x0 = pond.x + pond.r * 0.6;
-    const strip = new THREE.PlaneGeometry(channel.x1 - x0 + 0.05, channel.half * 2 + 0.06);
-    strip.rotateX(-Math.PI / 2);
-    strip.translate((x0 + channel.x1) / 2, WATER_Y - 0.002, channel.z);
-    surf.push(strip);
-  }
+  const x0 = pond.x + pond.r * 0.6;
+  const strip = new THREE.PlaneGeometry(channel.x1 - x0 + 0.05, channel.half * 2 + 0.06);
+  strip.rotateX(-Math.PI / 2);
+  strip.translate((x0 + channel.x1) / 2, WATER_Y - 0.002, channel.z);
+  surf.push(strip);
   // Vatten i fontänens skålar
   const lift = WATER_Y - 0.1;
   for (const [rr, y] of [[1.12, lift + 1.25], [0.52, lift + 1.94]]) {
@@ -1269,13 +1262,13 @@ function addPalms(scene, palms) {
 export function addHedges(scene, world, RAPIER, hedges) {
   if (world) {
     const body = fixedBody(world, RAPIER);
-    for (const H of hedges) boxCollider(world, RAPIER, body, H.w / 2, H.h / 2, H.d / 2, H.x, (H.y ?? 0) + H.h / 2, H.z, H.rotY ?? 0, 0.5);
+    for (const H of hedges) boxCollider(world, RAPIER, body, H.w / 2, H.h / 2, H.d / 2, H.x, H.h / 2, H.z, H.rotY ?? 0, 0.5);
   }
   if (!scene || !hedges.length) return;
   const geos = hedges.map((H) => {
     const g = boxWorldUV(new THREE.BoxGeometry(H.w, H.h, H.d), H.w, H.h, H.d, 0.9);
     g.rotateY(H.rotY ?? 0);
-    g.translate(H.x, (H.y ?? 0) + H.h / 2, H.z);
+    g.translate(H.x, H.h / 2, H.z);
     return g;
   });
   scene.add(shadowed(new THREE.Mesh(mergeAll(geos), hedgeMaterial())));
@@ -1308,10 +1301,10 @@ export function addBenches(scene, world, RAPIER, benches) {
 // Lösa krukor som bilarna kan välta
 // ===========================================================================
 
-export function addLoosePot(scene, world, RAPIER, { x, z, y = 0, s = 0.7, mass = 0.4 }) {
+export function addLoosePot(scene, world, RAPIER, { x, z, s = 0.7, mass = 0.4 }) {
   const h = 0.38 * s;
   const body = world.createRigidBody(
-    RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y + h / 2 + 0.005, z).setLinearDamping(0.2).setAngularDamping(0.4)
+    RAPIER.RigidBodyDesc.dynamic().setTranslation(x, h / 2 + 0.005, z).setLinearDamping(0.2).setAngularDamping(0.4)
   );
   world.createCollider(
     RAPIER.ColliderDesc.cylinder(h / 2, 0.25 * s).setDensity(0).setMass(mass).setFriction(0.6).setRestitution(0.2)
@@ -1507,6 +1500,3 @@ export function addSteppingStones(scene, path, ranges) {
   planarUV(g, 1.2);
   scene.add(shadowed(new THREE.Mesh(g, stoneMaterial()), false));
 }
-
-// För delar som bygger vidare på trädgårdens material (stenbron)
-export { stoneMaterial, shadowed, boxCollider, fixedBody, mergeAll };
