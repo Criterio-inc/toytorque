@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { G, groups } from '../core/physics.js';
 import { buildTrackData, buildTrackPhysics, buildTrackMesh } from '../track/track.js';
+import { buildTerrainData, buildTerrainPhysics, buildTerrainMesh } from './terrain.js';
 
 // ---------------------------------------------------------------------------
 // Bygger en nivå ur dess data. Utan scene (t.ex. i testskriptet) skapas bara
@@ -27,6 +28,11 @@ export function buildLevel({ scene = null, world, RAPIER, level }) {
   // Banan
   const track = buildTrackData(level.track);
   buildTrackPhysics(world, RAPIER, track);
+  // Terräng: marken byggs efter vägen, eftersom den tonas mot vägens höjd
+  if (level.track.terrain) {
+    track.ground = buildTerrainData(track, level.track.terrain, level.floor.size);
+    buildTerrainPhysics(world, RAPIER, track.ground);
+  }
 
   // Nivåns egen miljö: golv, väggar, staplar och lösa saker
   if (level.environment) props.push(...level.environment({ scene, world, RAPIER, track }));
@@ -72,7 +78,8 @@ export function buildLevel({ scene = null, world, RAPIER, level }) {
 function buildRoom(world, RAPIER, level) {
   const half = level.floor.size / 2;
   const floorBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-  world.createCollider(
+  // Med terräng är marken golvet (den kan gå under noll i sänkor)
+  if (!level.track.terrain) world.createCollider(
     RAPIER.ColliderDesc.cuboid(half, 0.5, half).setTranslation(0, -0.5, 0).setFriction(1).setCollisionGroups(groups(G.WORLD)),
     floorBody
   );
@@ -99,6 +106,7 @@ function buildRoom(world, RAPIER, level) {
 function buildLevelMeshes(scene, built) {
   const { level, track, props } = built;
   if (!level.environment) buildRoomMeshes(scene, level);
+  if (!level.environment && track.ground) buildTerrainMesh(scene, track.ground, level.terrainColor);
   for (const s of level.statics) {
     const m = new THREE.Mesh(
       new THREE.BoxGeometry(...s.size),
@@ -139,7 +147,7 @@ function buildRoomMeshes(scene, level) {
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
-  scene.add(floor);
+  if (!level.track.terrain) scene.add(floor);
 
   // Väggar med en mörkare sockel
   const wallMat = new THREE.MeshStandardMaterial({ color: level.walls.color, roughness: 0.9 });

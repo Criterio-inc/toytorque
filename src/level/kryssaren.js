@@ -13,6 +13,7 @@ import { addBeachBall } from './warehouseArt.js';
 // Genvägen skär av stäven genom förpikens täckta passage, babordsrakan har
 // ett bordshopp och promenaden kantas av blomlådor i stället för vallar.
 // Vid starten står kaptenens podium med jätteankaret.
+// Banan är öppen: relingen och däckshuset är kanterna.
 // ---------------------------------------------------------------------------
 
 const Z = 11;       // rakornas avstånd från mittlinjen
@@ -25,6 +26,7 @@ const POOL = { x0: -50.6, x1: -45.6, z0: -4.2, z1: 4.2 };
 export const kryssaren = {
   id: 'kryssaren',
   name: 'Kryssaren',
+  layout: 2, // öppen bana sedan 2026-11-23: äldre spökbilar gäller inte
   laps: 3,
   sky: 0x9cc8ea,
   skyGradient: ['#2a6cbd', '#d3e8f4', '#9cc6e0'],
@@ -84,9 +86,21 @@ export const kryssaren = {
     gaps: [{ from: [J, -Z], to: [J + 1.2, -Z] }],
     // Runt stäven lutar fördäcket inåt (doserad kurva)
     bank: [{ at: [61, 0], deg: 15, fade: 6 }],
-    // Under promenadtaket håller däckshuset och blomlådorna bilarna kvar,
-    // vid genvägens av- och påfart kistor på ytterkanten
-    openings: [{ from: [8, Z], to: [-24, Z] }, { from: [28, -Z], to: [44, -Z] }, { from: [44, Z], to: [30, Z] }],
+    // Öppen bana: relingen, däckshuset, blomlådorna, kistorna och
+    // solstolarna är kanterna. Hoppen och ramperna upp på akterdäcket har
+    // räcken; lastluckan och fördäckets doserade kurva sluttar ner mot däcket.
+    freeRoam: true,
+    checkpointHalf: 5,
+    closed: [
+      { from: [J - 8.5, -Z], to: [J + 9.5, -Z] },
+      { from: [J2 + 8.5, Z], to: [J2 - 12.5, Z] },
+      { from: [-31, Z], to: [SHIP.sunX, Z] },
+      { from: [SHIP.sunX, -Z], to: [-31, -Z] },
+    ],
+    embank: [
+      { from: [-27, -Z], to: [-12.5, -Z], slope: 2.5 },
+      { from: [53, -8], to: [53, 8], slope: 2.5 },
+    ],
     // Genväg tvärs över fördäcket genom förpikens tunnel (skär av stäven)
     shortcuts: [{
       from: [27, -Z], to: [31, Z],
@@ -98,7 +112,7 @@ export const kryssaren = {
   },
   trackTheme: {
     road: '#8a5a32', roadRough: 0.4, side: '#ece8df', pillar: '#e8e4dc',
-    barrierA: 0xc8302c, barrierB: 0xf4f1ea,
+    barrierA: 0xc8302c, barrierB: 0xf4f1ea, embank: 0x9a6a3c,
   },
 
   statics: [],

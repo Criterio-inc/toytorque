@@ -18,6 +18,7 @@ import { museet } from '../src/level/museet.js';
 import { kvarteret } from '../src/level/kvarteret.js';
 import { skejtparken } from '../src/level/skejtparken.js';
 import { supermarket } from '../src/level/supermarket.js';
+import { provbana } from '../src/level/provbana.js';
 import { Race } from '../src/race/race.js';
 import { PathFollower, AiDriver } from '../src/ai/pathFollower.js';
 import { buildField } from '../src/race/field.js';
@@ -209,6 +210,14 @@ for (const id of CAR_ORDER) {
   const lapLevels = ['rasket', 'glidaren', 'raketen'].includes(id) ? [...ALL_LEVELS] : [lagret, spokstaden];
   if (id === 'rasket' || id === 'raketen') lapLevels.push(...EDITOR_LEVELS); // banbyggarens exempel
   for (const level of lapLevels) {
+    const r = lapRun(def, id, level);
+    check(`${tag} ${level.name.padEnd(6)} 3 varv`, r.ok, r.info);
+  }
+}
+
+// Tre varv med banföljaren. ok = i mål utan att lämna världen, fastna eller hoppa bakåt.
+function lapRun(def, id, level) {
+  {
     reseed(`${id}:${level.name}`);
     const world = createWorld(RAPIER);
     const lvl = buildLevel({ world, RAPIER, level });
@@ -240,7 +249,48 @@ for (const id of CAR_ORDER) {
       }
     }
     const laps = racer.bestLap ? `bästa varv ${racer.bestLap.toFixed(2)} s, bana ${T.length.toFixed(0)} m` : `varv ${racer.lap}, cp ${racer.nextCp}`;
-    check(`${tag} ${level.name.padEnd(6)} 3 varv`, race.state === 'finished' && respawns === 0 && progJump < 3 && autoResets === 0, `${laps}, luft ${maxAir.toFixed(2)} s, högst ${maxY.toFixed(2)} m, bakåthopp ${progJump.toFixed(2)} m, total ${race.time.toFixed(1)} s, ut ur världen ${respawns}, fast och återsatt ${autoResets}, steg upp-och-ner ${flips}`);
+    return { ok: race.state === 'finished' && respawns === 0 && progJump < 3 && autoResets === 0, T, maxY, flips, info: `${laps}, luft ${maxAir.toFixed(2)} s, högst ${maxY.toFixed(2)} m, bakåthopp ${progJump.toFixed(2)} m, total ${race.time.toFixed(1)} s, ut ur världen ${respawns}, fast och återsatt ${autoResets}, steg upp-och-ner ${flips}` };
+  }
+}
+
+// 8a. Topografi: höjdmotorn på provbanan (åtta med bro, kullar och 25°
+// dosering) och målen för ombyggda banor (kör: npm test topografi)
+if (!only || only === 'topografi') {
+  const world = createWorld(RAPIER);
+  const lvl = buildLevel({ world, RAPIER, level: provbana });
+  const T = lvl.track, Gd = T.ground;
+  world.step();
+  // Marken: det man kör på är där grafiken säger
+  let miss = 0, off = 0;
+  for (let x = -40; x <= 40; x += 2.5) for (let z = -40; z <= 40; z += 2.5) {
+    if (T.nearest(x, z).d2 < (T.roadHalf + 0.5) ** 2) continue; // vägen ligger ovanpå
+    const hit = world.castRay(new RAPIER.Ray({ x, y: 30, z }, { x: 0, y: -1, z: 0 }), 60, true);
+    if (!hit) miss++; else if (Math.abs(30 - hit.timeOfImpact - Gd.heightAt(x, z)) > 0.03) off++;
+  }
+  check('Topografi: marken går att köra på', miss === 0 && off === 0, `${miss} missar, ${off} fel höjd`);
+  // Vägen följer marken: inget glapp mellan vägkant och mark utanför broarna
+  let gap = 0;
+  for (let i = 0; i < T.N; i++) {
+    if (T.isBridge[i] || T.isGap[i]) continue;
+    for (const side of [1, -1]) {
+      const e = T.poseAt(i, side * (T.roadHalf + 0.1));
+      gap = Math.max(gap, Math.abs(e.y - Gd.heightAt(e.x, e.z)));
+    }
+  }
+  check('Topografi: vägkant möter marken', gap < 0.06, `största glapp ${gap.toFixed(3)} m`);
+  // Korsningen: höjden avgör vilken vägbit man är på
+  const iB = T.isBridge.findIndex((b, i) => b && T.isBridge[(i + 8) % T.N]);
+  const bridgeY = Math.max(...T.pts.filter((_, i) => T.isBridge[i]).map((p) => p.y));
+  const low = T.nearest(0, 0, -1, 40, Gd.heightAt(0, 0) + 0.1), high = T.nearest(0, 0, -1, 40, bridgeY + 0.1);
+  const cpOk = T.checkpoints.every((cp) => !T.isBridge[cp.index] || Math.abs(T.pts[cp.index].x) > 5);
+  check('Topografi: bro och korsning', T.crossings && iB >= 0 && !T.isBridge[low.index] && T.isBridge[high.index] && bridgeY - Gd.heightAt(0, 0) > 1.2 && cpOk,
+    `bro ${bridgeY.toFixed(2)} m, under ${Gd.heightAt(0, 0).toFixed(2)} m, låg ${low.index}, hög ${high.index}, ${T.checkpoints.length} kontrollpunkter`);
+  const maxBank = Math.max(...T.bank.map((b) => Math.abs(b))) * 180 / Math.PI;
+  const ys = T.pts.map((p) => p.y);
+  check('Topografi: provbanans höjd', maxBank > 24 && Math.max(...ys) - Math.min(...ys) > 2.5, `dosering ${maxBank.toFixed(0)}°, höjd ${Math.min(...ys).toFixed(2)}..${Math.max(...ys).toFixed(2)} m`);
+  for (const id of ['rasket', 'glidaren', 'raketen']) {
+    const r = lapRun(CARS[id], id, provbana);
+    check(`Topografi: ${CARS[id].name} 3 varv på provbanan`, r.ok && r.flips < 60, r.info);
   }
 }
 
@@ -380,9 +430,9 @@ if (!only || only === 'stabilitet') {
 }
 
 // 9. Fullt fält: 8 datorförare på varje nivå ska alla gå i mål utan kaos
-const FIELD_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, skejtparken, ...EDITOR_LEVELS];
+const FIELD_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, skejtparken, ...EDITOR_LEVELS, provbana];
 for (const level of FIELD_LEVELS) {
-  if (only && only !== 'falt') break; // kör: npm test falt
+  if (only && only !== 'falt' && !(only === 'topografi' && level === provbana)) continue; // kör: npm test falt
   const world = createWorld(RAPIER);
   const lvl = buildLevel({ world, RAPIER, level });
   const T = lvl.track;
@@ -737,7 +787,7 @@ if (!only || only === 'dosering') {
     for (let i = 0; i < T.N; i++) { maxBank = Math.max(maxBank, Math.abs(T.bank[i])); lo = Math.min(lo, T.pts[i].y); hi = Math.max(hi, T.pts[i].y); }
     return { name: level.name, deg: (maxBank * 180) / Math.PI, rise: hi - lo };
   });
-  check('Nivåer: dosering och höjd', info.every((r) => r.deg >= 10 && r.deg <= 18.01 && r.rise >= 0.5), info.map((r) => `${r.name} ${r.deg.toFixed(0)}°/${r.rise.toFixed(2)} m`).join(', '));
+  check('Nivåer: dosering och höjd', info.every((r) => r.deg >= 10 && r.deg <= 25.01 && r.rise >= 0.5), info.map((r) => `${r.name} ${r.deg.toFixed(0)}°/${r.rise.toFixed(2)} m`).join(', '));
 }
 
 // 14. Trappan mellan våningarna: en långsam bil som kryper över kanten

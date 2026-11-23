@@ -1740,7 +1740,7 @@ export function buildKitchen({ scene, world, RAPIER, track, K }) {
   addOpenDoors(C, { x: A.doors.x, z: R.z1, w: A.doors.w });
   addFlapDoor(C, { x: A.flap.x, z: R.z1, flap: A.flap });
   addPatio(C, R, A, gaps);
-  addInnerList(C, track, 8);
+  if (!track.freeRoam) addInnerList(C, track, 8); // öppen bana: ingen list att ersätta
   addWindow(C, { x: -4.0, z: R.z1, rotY: PI, w: 1.8, h: 1.4, sill: 0.85, mullions: 1, curtains: true });
   addWindow(C, { x: 6.0, z: R.z1, rotY: PI, w: 1.8, h: 1.4, sill: 0.85, mullions: 1, curtains: true });
   addRadiator(C, { x: -4.0, z: R.z1, rotY: PI, w: 1.4 });

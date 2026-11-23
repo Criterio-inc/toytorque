@@ -59,6 +59,22 @@ export class Minimap {
     path(pts, true); g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = w + 5; g.stroke();
     for (const s of short) { path(s, false); g.strokeStyle = 'rgba(255,255,255,.45)'; g.setLineDash([w * 0.6, w * 0.5]); g.lineWidth = w * 0.7; g.stroke(); g.setLineDash([]); }
     path(pts, true); g.strokeStyle = 'rgba(240,244,255,.92)'; g.lineWidth = w; g.stroke();
+    // Höjder: vägen ritas om i bitar från lägst till högst, så att en bro hamnar
+    // ovanpå vägen under, och lägre partier blir mörkare
+    let y0 = Infinity, y1 = -Infinity;
+    for (const p of pts) { y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+    if (y1 - y0 > 0.5) {
+      const L = 6, bits = [];
+      for (let i = 0; i < pts.length; i += L) bits.push(Array.from({ length: L + 2 }, (_, k) => pts[(i + k) % pts.length]));
+      const yOf = (b) => b.reduce((s, p) => s + p.y, 0) / b.length;
+      bits.sort((a, b) => yOf(a) - yOf(b));
+      for (const b of bits) {
+        const u = (yOf(b) - y0) / (y1 - y0), c = Math.round(150 + 105 * u);
+        path(b, false); g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = w + 5; g.lineCap = 'butt'; g.stroke();
+        path(b, false); g.strokeStyle = `rgb(${c},${c + 4 > 255 ? 255 : c + 4},255)`; g.lineWidth = w; g.stroke();
+      }
+      g.lineCap = 'round';
+    }
     // Mållinjen: ett rutigt streck tvärs vägen vid första checkpointen
     const cp = track.checkpoints?.[0];
     if (cp?.normal) {

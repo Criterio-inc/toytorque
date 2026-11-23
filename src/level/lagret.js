@@ -11,6 +11,9 @@ import {
 // genom gång 13, runt nästa ände, upp genom gång 12 och tillbaka längs gång 11
 // vid väggen, där en körbrygga i stål står mitt i gången.
 //
+// Banan är öppen: inga påkörningsskydd längs vägen, utan pallställen och
+// pallarna är kanterna. Man kan svänga ut över hela gångens bredd.
+//
 // Genvägen går genom ett tomt fack längst ner i stället mellan gång 14 och 13,
 // under en gaffeltrucks upplyfta pall. I gång 12 ligger en tom kartong på
 // sidan bredvid vägen som går att köra igenom.
@@ -33,7 +36,7 @@ const CART = { x: -12.8, z: 3.0, len: 2.0 }; // kartongen i gång 12
 export const lagret = {
   id: 'lagret',
   name: 'Lagret',
-  layout: 2, // banan byggdes om 2026-11-22: äldre spökbilar gäller inte längre
+  layout: 3, // öppen bana sedan 2026-11-23: äldre spökbilar gäller inte längre
   laps: 3,
   sky: 0x9fa6ad,
   fog: { near: 30, far: 85 },
@@ -49,7 +52,7 @@ export const lagret = {
   // Vägen är lagergolvet; kanterna är gul- och svartrandiga påkörningsskydd
   trackTheme: {
     road: '#808284', roadRough: 0.5, side: 0x6f7173, pillar: 0x6f7173,
-    barrierA: 0xf2b705, barrierB: 0x2a2a2a,
+    barrierA: 0xf2b705, barrierB: 0x2a2a2a, embank: 0x9a7b55,
   },
 
   track: {
@@ -85,12 +88,12 @@ export const lagret = {
     airZones: [{ from: [-22, J + 8], to: [-22, J - 11] }], // även studsar på landningen hålls plana
     // Hörnet ut från huvudgången är doserat: en vall av pallar under vägen
     bank: [{ at: [10, -26], deg: 12, fade: 4 }],
-    openings: [
-      // Ut till kartongen och in igen
-      { from: [-10, -2.2], to: [-10, 0.6] }, { from: [-10, 5.2], to: [-10, 10.2] },
-      // Av- och påfarten till genvägen genom stället
-      { from: [10, 2], to: [10, PASS.z + 2.2] }, { from: [0, PASS.z + 2.2], to: [0, 2] },
-    ],
+    // Öppen bana: pallställen, väggarna och pallarna är kanterna. Bara
+    // körbryggan har kanter, så att ingen kör över sidan på väg upp.
+    freeRoam: true,
+    closed: [{ from: [-22, J + 8], to: [-22, J + 0.5] }],
+    // Den doserade kurvans pallvall sluttar ner mot golvet på utsidan
+    embank: [{ from: [4, -26], to: [10, -20], slope: 2.5 }],
     checkpointHalf: 3.8,
     // Styr spelaren åt höger före kartongen siktar körhjälpen genom den
     sideExits: [{
@@ -150,14 +153,8 @@ export const lagret = {
     addYardRamp(B, track, at(-22, J + 8.6), at(-22, J + 0.55));
     addLandingDeck(B, track, at(-22, J - 0.75), at(-22, J - 11.8));
 
-    // Kartongen i gång 12 och påkörningsskydd på andra sidan där kanten är öppen
+    // Kartongen i gång 12
     addOpenCarton(B, world, RAPIER, { x: CART.x, z: CART.z, len: CART.len, seed: 4 });
-    const edges = [
-      ...edgeSegments(track, [-10, -2.5], [-10, 0.9], { side: 1, offset: track.roadHalf + 0.06 }),
-      ...edgeSegments(track, [-10, 4.9], [-10, 10.5], { side: 1, offset: track.roadHalf + 0.06 }),
-    ];
-    edgeColliders(world, RAPIER, edges, { h: 0.34, thick: 0.14 });
-    addGuardRail(B, edges);
     // Höga påkörningsskydd längs landningen: en bil som studsar snett efter
     // hoppet slår i räcket och stannar på vägen i stället för att hamna bakom
     const land = edgeSegments(track, [-22, J - 0.9], [-22, J - 15], { offset: track.roadHalf + 0.06 });

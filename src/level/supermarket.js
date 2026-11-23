@@ -16,6 +16,9 @@ import { addFloorLines } from './warehouseArt.js';
 // lastkajen och hoppet från dess kant, genom det frostiga frysrummet med lågt
 // tak och halt golv och kampanjhoppet framför kassorna. Genvägen går tvärs
 // genom hyllorna mellan gång 7 och gång 6.
+//
+// Banan är öppen: inga vallar längs vägen utom vid hoppen, utan hyllorna,
+// frysdiskarna och backstaplarna är kanterna.
 // ---------------------------------------------------------------------------
 
 const FRONT = -18; // stråket framför kassorna (z)
@@ -28,6 +31,7 @@ const DOCK_Y = 0.85;
 export const supermarket = {
   id: 'supermarket',
   name: 'Supermarketen',
+  layout: 2, // öppen bana sedan 2026-11-23: äldre spökbilar gäller inte
   laps: 3,
   sky: 0xdfe6ec,
   fog: { near: 40, far: 120, color: 0xdde4ea },
@@ -44,7 +48,7 @@ export const supermarket = {
 
   trackTheme: {
     road: '#7b838c', roadRough: 0.38, side: '#8f959b', pillar: '#7d838a',
-    barrierA: '#d23a32', barrierB: '#f2f2f2',
+    barrierA: '#d23a32', barrierB: '#f2f2f2', embank: 0x9a7b55,
   },
 
   track: {
@@ -92,6 +96,18 @@ export const supermarket = {
     airZones: [{ from: [-13, FRONT], to: [-5.6, FRONT] }], // kampanjhoppet: bilarna hålls plana i luften
     // Kurvan ut ur frysgången är doserad (pallar under vägen)
     bank: [{ at: [WEST, FRONT], deg: 14, fade: 4 }],
+    // Öppen bana: hyllorna, frysdiskarna, mellanväggarna och backstaplarna är
+    // kanterna. Kampanjhoppet och vägen upp på kajen har kvar sina räcken,
+    // och puckeln, landningen efter kajen och den doserade kurvan är vallar
+    // av pallar som sluttar ner mot golvet.
+    freeRoam: true,
+    checkpointHalf: 3.8,
+    closed: [{ from: [-13, FRONT], to: [2, FRONT] }, { from: [4, BACK], to: [-10, BACK] }],
+    embank: [
+      { from: [28, -6], to: [28, 6], slope: 1.6 },
+      { from: [-11.2, BACK], to: [-21, BACK], slope: 2.5 },
+      { from: [WEST, FRONT + 6.5], to: [WEST + 6.5, FRONT], slope: 2.5 },
+    ],
     // Genom hyllorna: från gång 7 tvärs över till gång 6 (hoppar över hörnet vid kassorna)
     shortcuts: [{ from: [19, 12], via: [[18.3, 8.3], [11.4, 7.6]], to: [10, 13.6], r: 2.5, roadHalf: 1.3, ai: 0.4 }],
   },
@@ -241,9 +257,10 @@ function buildMarket({ scene, world, RAPIER, track }) {
   // Startportalen: ballongvalv med banderoll över startlinjen
   addOpeningArch(C, { x: 14, z: FRONT, rotY: Math.PI / 2, span: 4.0, h: 2.5 });
 
-  // Backstaplar längs kanterna (stråket vid kajen och framför kassorna)
+  // Backstaplar längs kanterna (stråket vid kajen och framför kassorna).
+  // Efter kajhoppet står de bakom pallvallen.
   let cs = 1;
-  for (let x = -21; x <= 5; x += 3.3) addCrateStack(C, { x, z: BACK - track.roadHalf - 0.45, rotY: 0.05 * (cs % 3), layers: 2 + (cs % 3), color: [0x1e63b5, 0xd7262e, 0x2e8b3e][cs % 3], seed: cs++ });
+  for (let x = -21; x <= 5; x += 3.3) addCrateStack(C, { x, z: BACK - track.roadHalf - 0.45 - (x < -10.5 ? 2.0 : 0), rotY: 0.05 * (cs % 3), layers: 2 + (cs % 3), color: [0x1e63b5, 0xd7262e, 0x2e8b3e][cs % 3], seed: cs++ });
   for (let x = -22; x <= 21; x += 3.6) {
     if (Math.abs(x - 14) < 3) continue;
     addCrateStack(C, { x, z: FRONT + track.roadHalf + 0.45, rotY: -0.04 * (cs % 3), layers: 1 + (cs % 3), color: [0xffb300, 0x1e63b5, 0xd7262e][cs % 3], seed: cs++ });
@@ -252,7 +269,7 @@ function buildMarket({ scene, world, RAPIER, track }) {
   // Kampanjbanderoll över hoppet
   addBanner(C, { x: -8, z: FRONT, rotY: Math.PI / 2, span: 4.6, y: 1.9 });
 
-  // Kampanjdisplayer längs kassastråket (utanför vallarna)
+  // Kampanjdisplayer längs kassastråket
   addCanPyramid(C, { x: 17.5, z: FRONT - 3.2, levels: 7, label: 'CITRUSKICK', rotY: 0.2 });
   addCanPyramid(C, { x: -14, z: FRONT - 3.0, levels: 6, label: 'PÄRONSODA', rotY: -0.25 });
   addPallet(C, { x: -12.5, z: FRONT - 2.9, load: 'cans', layers: 3, seed: 21 });

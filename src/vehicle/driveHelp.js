@@ -36,7 +36,8 @@ export function helpControls(controls, vehicle, racer, track, level) {
     // Ny avfart bara före öppningen (en bit förbi den hade hjälpen styrt in i
     // väggen), och hjälpen släpper när bilen nått linjens slut
     if (m.s > m.total - 0.3) continue;
-    if (racer.exitAim === e || (steer * e.side > 0.5 && m.s < 2)) { exit = e; at = m; }
+    // auto: väl inne i zonen leder hjälpen alltid vidare (altanen har bara en väg in)
+    if (racer.exitAim === e || e.auto || (steer * e.side > 0.5 && m.s < 2)) { exit = e; at = m; }
   }
   racer.exitAim = exit;
   if (exit) {
