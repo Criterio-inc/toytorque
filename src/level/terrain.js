@@ -5,7 +5,9 @@ import { G, groups } from '../core/physics.js';
 // Terräng: mark med kullar och sänkor som vägen ligger i, i stället för ett
 // platt golv. Banan anger den i sin spec:
 //   terrain: { hills: [{ x, z, r | rx+rz, h, rot? }], cell?, blend?, base? }
-// h kan vara negativt (en sänka, en bäckfåra). Kullarna lyfter också vägen
+// h kan vara negativt (en sänka, en bäckfåra). En terrass är platt upptill med
+// egna slänter åt sidorna: { terrace: true, x, z, ax, az, ex, ez, h, rot? }
+// där ax/az är halva längden och ex/ez slänternas bredd (smal = brant bank). Kullarna lyfter också vägen
 // (track.js lägger groundAt till höjdprofilen), så vägen följer marken utan
 // att varje backe måste skrivas in för hand. På broar (spec.bridges) följer
 // vägen inte marken och marken inte vägen.
@@ -20,6 +22,11 @@ export function hillsAt(hills, x, z) {
   for (const k of hills) {
     let dx = x - k.x, dz = z - k.z;
     if (k.rot) { const c = Math.cos(k.rot), s = Math.sin(k.rot); [dx, dz] = [dx * c - dz * s, dx * s + dz * c]; }
+    if (k.terrace) {
+      const side = (d, a, e) => { const t = Math.abs(d) - (a - e); return t <= 0 ? 1 : t >= e ? 0 : 0.5 * (1 + Math.cos((Math.PI * t) / e)); };
+      h += k.h * side(dx, k.ax, k.ex) * side(dz, k.az, k.ez);
+      continue;
+    }
     const u = Math.hypot(dx / (k.rx ?? k.r), dz / (k.rz ?? k.r));
     if (u < 1) h += k.h * 0.5 * (1 + Math.cos(Math.PI * u));
   }
