@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { G, groups } from '../core/physics.js';
 import { rng } from './warehouseArt.js';
 import { bankY } from '../track/track.js';
+import { terrainGeometry } from './terrain.js';
 
 export { rng };
 
@@ -696,9 +697,10 @@ function sandTexture() {
   });
 }
 
-export function makeDesertGround(scene, world, RAPIER, { size, visual = 560 } = {}) {
+export function makeDesertGround(scene, world, RAPIER, { size, visual = 560, ground = null } = {}) {
   const half = size / 2;
-  if (world) {
+  // Med terräng (ground) har nivåbyggaren redan gjort markens kollision
+  if (world && !ground) {
     const body = fixedBody(world, RAPIER);
     world.createCollider(
       RAPIER.ColliderDesc.cuboid(half + 10, 0.5, half + 10).setTranslation(0, -0.5, 0).setFriction(0.95).setCollisionGroups(groups(G.WORLD)),
@@ -721,9 +723,25 @@ export function makeDesertGround(scene, world, RAPIER, { size, visual = 560 } = 
     col[i * 3] = k + red; col[i * 3 + 1] = k - red * 0.3; col[i * 3 + 2] = k - red;
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const ground = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map, roughness: 1, vertexColors: true }));
-  ground.receiveShadow = true;
-  scene.add(ground);
+  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map, roughness: 1, vertexColors: true }));
+  if (ground) mesh.position.y = -0.03; // den stora slätten ligger strax under terrängen
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  if (ground) {
+    // Terrängen med samma sand och färgvariation, så att skarven inte syns
+    const tg = terrainGeometry(ground, SAND_TILE);
+    const tp = tg.attributes.position, tc = new Float32Array(tp.count * 3);
+    for (let i = 0; i < tp.count; i++) {
+      const x = tp.getX(i), z = tp.getZ(i);
+      const k = 0.92 + n(x * 0.03, 0, z * 0.03) * 0.12 + n(x * 0.11, 3, z * 0.11) * 0.04 - Math.max(0, -tp.getY(i)) * 0.06;
+      const red = n(x * 0.015, 7, z * 0.015) * 0.06;
+      tc.set([k + red, k - red * 0.3, k - red], i * 3);
+    }
+    tg.setAttribute('color', new THREE.BufferAttribute(tc, 3));
+    const t = new THREE.Mesh(tg, mesh.material);
+    t.receiveShadow = true;
+    scene.add(t);
+  }
 }
 
 // ===========================================================================
@@ -767,8 +785,11 @@ export function addTrackDirt(scene, track) {
   const extra = 0.55, half = roadHalf + extra;
   const dPos = [], dUv = [], dIdx = [];
   const pPos = [], pUv = [], pIdx = [];
-  const flat = (i) => pts[i % N].y < 0.02 && !isGap[i % N];
-  const high = (i) => pts[i % N].y >= 0.02 && !isGap[i % N];
+  // Plankdäck på broar. Utan terräng är allt som ligger högt en bro, med
+  // terräng följer vägen marken och bara riktiga broar får plankor.
+  const raised = (i) => (track.ground ? !!track.isBridge?.[i % N] : pts[i % N].y >= 0.02);
+  const flat = (i) => !raised(i) && !isGap[i % N];
+  const high = (i) => raised(i) && !isGap[i % N];
   for (let i = 0; i <= N; i++) {
     const p = pts[i % N], nn = normals[i % N], v = (dist[i] ?? track.length);
     // På en sandvall sluttar marken direkt utanför vägen: ingen bred jordkant som svävar
@@ -829,7 +850,7 @@ function creekTexture() {
   });
 }
 
-export function addCreekBed(scene, { points, width = 3.4 }) {
+export function addCreekBed(scene, { points, width = 3.4, ground = null }) {
   if (!scene) return;
   const curve = new THREE.CatmullRomCurve3(points.map(([x, z]) => new THREE.Vector3(x, 0, z)));
   const n = Math.ceil(curve.getLength() / 0.8);
@@ -842,7 +863,8 @@ export function addCreekBed(scene, { points, width = 3.4 }) {
     const nx = -tz / l, nz = tx / l;
     if (i) along += p.distanceTo(sp[i - 1]);
     const w = width * (0.8 + 0.25 * Math.sin(i * 0.37)) / 2;
-    pos.push(p.x + nx * w, 0.006, p.z + nz * w, p.x - nx * w, 0.006, p.z - nz * w);
+    const y = (x, z) => (ground ? ground.heightAt(x, z) : 0) + 0.006;
+    pos.push(p.x + nx * w, y(p.x + nx * w, p.z + nz * w), p.z + nz * w, p.x - nx * w, y(p.x - nx * w, p.z - nz * w), p.z - nz * w);
     uv.push(0, along / 4, 1, along / 4);
     if (i < n) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
   }

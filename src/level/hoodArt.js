@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { G, groups } from '../core/physics.js';
 import { rng } from './warehouseArt.js';
 import { barrierSegments, barrierCenter, edge3, bankY } from '../track/track.js';
+import { terrainGeometry } from './terrain.js';
 
 export { rng };
 
@@ -669,9 +670,13 @@ function groundRect(cx, cz, w, d, rot, y, tile) {
 // Mark: gräsmatta överallt (fysik + grafik)
 // ===========================================================================
 
-export function makeGround(scene, world, RAPIER, { size, visual = 700, grip = 0.9 } = {}) {
+export function makeGround(scene, world, RAPIER, { size, visual = 700, grip = 0.9, ground = null } = {}) {
   const half = size / 2;
-  if (world) {
+  // Med terräng har nivåbyggaren gjort markens kollision: den får bara gräsets grepp
+  if (world && ground?.body) {
+    world.__surfaces ||= new Map();
+    world.__surfaces.set(ground.body.collider(0).handle, { grip });
+  } else if (world) {
     const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     const col = world.createCollider(
       RAPIER.ColliderDesc.cuboid(half + 15, 0.5, half + 15).setTranslation(0, -0.5, 0).setFriction(0.9).setCollisionGroups(groups(G.WORLD)),
@@ -694,9 +699,23 @@ export function makeGround(scene, world, RAPIER, { size, visual = 700, grip = 0.
     col[i * 3] = 0.84 + n * 0.2 + far * 0.05; col[i * 3 + 1] = 0.9 + n * 0.14; col[i * 3 + 2] = 0.78 + n * 0.12;
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const ground = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map, vertexColors: true, roughness: 0.95, envMapIntensity: 0.3 }));
-  ground.receiveShadow = true;
-  scene.add(ground);
+  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map, vertexColors: true, roughness: 0.95, envMapIntensity: 0.3 }));
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  if (ground) {
+    mesh.position.y = -0.03; // den stora gräsytan ligger strax under terrängen
+    const tg = terrainGeometry(ground, GRASS_TILE);
+    const tp = tg.attributes.position, tc = new Float32Array(tp.count * 3);
+    for (let i = 0; i < tp.count; i++) {
+      const x = tp.getX(i), z = tp.getZ(i);
+      const n = 0.5 + 0.25 * Math.sin(x * 0.13 + 1.3) * Math.cos(z * 0.11) + 0.25 * Math.sin((x - z) * 0.045 + 2);
+      tc.set([0.84 + n * 0.2, 0.9 + n * 0.14, 0.78 + n * 0.12], i * 3);
+    }
+    tg.setAttribute('color', new THREE.BufferAttribute(tc, 3));
+    const t = new THREE.Mesh(tg, mesh.material);
+    t.receiveShadow = true;
+    scene.add(t);
+  }
 }
 
 // ===========================================================================
@@ -1553,9 +1572,25 @@ export function addLooseBall(scene, world, RAPIER, { x, z, r = 0.11, mass = 0.07
 // ===========================================================================
 
 /** Tätt brädstaket (plankstaket) längs en polyline, med kollision. */
-export function addPlankFence(B, world, RAPIER, { points, h = 1.6, color = 0xb59a7a }) {
+export function addPlankFence(B, world, RAPIER, { points, h = 1.6, color = 0xb59a7a, ground = null }) {
   const body = world ? world.createRigidBody(RAPIER.RigidBodyDesc.fixed()) : null;
   const col = hex(color), post = mix(col, [0.2, 0.15, 0.1], 0.35);
+  // På kuperad mark delas planket i korta bitar som var och en står på marken
+  if (ground) {
+    const pts = [];
+    for (let k = 0; k < points.length - 1; k++) {
+      const [ax, az] = points[k], [bx, bz] = points[k + 1];
+      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 2.4));
+      for (let j = 0; j < n; j++) pts.push([ax + ((bx - ax) * j) / n, az + ((bz - az) * j) / n]);
+    }
+    pts.push(points[points.length - 1]);
+    for (let k = 0; k < pts.length - 1; k++) {
+      const [ax, az] = pts[k], [bx, bz] = pts[k + 1];
+      const y = Math.min(ground.heightAt(ax, az), ground.heightAt(bx, bz), ground.heightAt((ax + bx) / 2, (az + bz) / 2)) - 0.04;
+      plankPiece(B, body, world, RAPIER, ax, az, bx, bz, y, h, col, post);
+    }
+    return;
+  }
   for (let k = 0; k < points.length - 1; k++) {
     const [ax, az] = points[k], [bx, bz] = points[k + 1];
     const len = Math.hypot(bx - ax, bz - az);
@@ -1573,6 +1608,18 @@ export function addPlankFence(B, world, RAPIER, { points, h = 1.6, color = 0xb59
       B.add('wood', box(0.11, h + 0.12, 0.11, 0, (h + 0.12) / 2, 0).rotateY(rot).translate(x, 0, z), post);
     }
   }
+}
+
+function plankPiece(B, body, world, RAPIER, ax, az, bx, bz, y, h, col, post) {
+  const len = Math.hypot(bx - ax, bz - az);
+  if (len < 0.05) return;
+  const rot = Math.atan2(bx - ax, bz - az);
+  const cx = (ax + bx) / 2, cz = (az + bz) / 2;
+  if (world) boxCollider(world, RAPIER, body, 0.04, h / 2, len / 2, cx, y + h / 2, cz, rot);
+  if (!B) return;
+  B.add('wood', box(0.04, h, len, 0, h / 2, 0, { m: 1.3 }).rotateY(rot).translate(cx, y, cz), col);
+  B.add('wood', box(0.09, 0.05, len + 0.02, 0, h + 0.02, 0, { m: 1 }).rotateY(rot).translate(cx, y, cz), post);
+  B.add('wood', box(0.11, h + 0.12, 0.11, 0, (h + 0.12) / 2, 0).rotateY(rot).translate(ax, y, az), post);
 }
 
 /** Fullstor trafikkon (fast, står alltid utanför vägen). */

@@ -155,7 +155,10 @@ export class Race {
     const dx = p.x - cp.x, dz = p.z - cp.z;
     const s = dx * cp.tangent.x + dz * cp.tangent.z;
     const lat = dx * cp.normal.x + dz * cp.normal.z;
-    let crossed = r.prevS !== null && r.prevS < 0 && s >= 0 && Math.abs(lat) <= cp.halfWidth && Math.abs(p.y - cp.y) < 1.2;
+    // Höjden spelar bara roll där banan korsar sig själv. Annars räknas också
+    // den som ramlat ner från en ås eller ett krön och kör vidare nedanför.
+    const dy = this.track.crossings ? 1.2 : 4;
+    let crossed = r.prevS !== null && r.prevS < 0 && s >= 0 && Math.abs(lat) <= cp.halfWidth && Math.abs(p.y - cp.y) < dy;
     // Banor som korsar sig själva: bilen måste vara på rätt del av banan, inte på bron ovanför
     if (crossed && this.track.crossings) {
       const T = this.track, d = Math.abs(r.trackIndex - cp.index);
