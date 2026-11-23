@@ -31,7 +31,7 @@ export function buildLevel({ scene = null, world, RAPIER, level }) {
   // Terräng: marken byggs efter vägen, eftersom den tonas mot vägens höjd
   if (level.track.terrain) {
     track.ground = buildTerrainData(track, level.track.terrain, level.floor.size);
-    buildTerrainPhysics(world, RAPIER, track.ground);
+    track.ground.body = buildTerrainPhysics(world, RAPIER, track.ground); // miljön kan ge marken eget grepp
   }
 
   // Nivåns egen miljö: golv, väggar, staplar och lösa saker

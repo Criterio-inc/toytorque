@@ -8,9 +8,10 @@ import { edgeSegments, edgeColliders, addPlankRamp } from './warehouseArt.js';
 
 // ---------------------------------------------------------------------------
 // Nivå: Spökstaden. Övergiven västernstad i riktig skala (meter). Starten
-// ligger mitt på huvudgatan mellan fasaderna, sedan ut i öknen: ett hopp över
-// den trasiga plankbron vid den torra bäcken, över en sandkulle in i en
-// doserad sandvall och genom gruvtunneln i berget.
+// ligger mitt på huvudgatan mellan fasaderna, sedan ut i öknen: över en kulle
+// på östra rakan, ner genom ravinen där den torra bäcken skurit sig ner, en
+// doserad sandvall och upp på den smala åsen med stup åt båda sidor, och
+// till sist genom gruvtunneln i berget.
 // ---------------------------------------------------------------------------
 
 const ST = -16; // huvudgatans z
@@ -19,7 +20,7 @@ const BACK = 21; // bakre rakans z
 export const spokstaden = {
   id: 'spokstaden',
   name: 'Spökstaden',
-  layout: 2, // öppen bana sedan 2026-11-22: äldre spökbilar gäller inte
+  layout: 3, // terräng sedan 2026-11-23: äldre spökbilar gäller inte
   laps: 3,
   sky: 0xe0bc92,
   skyGradient: [0x86aed4, 0xe6c49a, 0xd8ab7c],
@@ -58,31 +59,29 @@ export const spokstaden = {
       { x: -46, z: BACK, r: 7 },
       { x: -44, z: ST, r: 7 },
     ],
-    elevation: [
-      // Plankbron över den torra bäcken: rak ramp ända ut i kanten, glapp, landning
-      { at: [32, BACK], y: 0 },
-      { at: [29, BACK], y: 0.06 },
-      { at: [23.5, BACK], y: 0.46, linear: true },
-      { at: [22.3, BACK], y: 0.32, linear: true },
-      { at: [19.5, BACK], y: 0.14, linear: true },
-      { at: [14, BACK], y: 0 },
-      // Sandkullen i S:et: uppför, krön där bilarna lättar, och ner i den
-      // doserade kurvan
-      { at: [0.5, 18.8], y: 0 },
-      { at: [-4.5, 15.8], y: 0.75 },
-      { at: [-9, 13.1], y: 0.42 },
-      { at: [-30, 15.6], y: 0 },
-    ],
-    gaps: [{ from: [23.5, BACK], to: [22.3, BACK] }],
-    // Den doserade kurvan i S:et: en vall av packad sand
-    bank: [{ at: [-14, 10], deg: 14, fade: 8 }],
+    // Marken: staden, ladan och gruvan ligger på plan mark, höjderna ute i öknen
+    terrain: {
+      hills: [
+        // Åsen mellan sandvallen och gruvan: smal rygg längs vägen, stup åt sidorna
+        { x: -30, z: 15.5, rx: 16, rz: 8.5, rot: 0.331, h: 2.9 },
+        // Ravinen där bäcken korsar bakre rakan, och fåran vidare norrut
+        { x: 23, z: 21, rx: 10, rz: 5, h: -1.8 },
+        { x: 25, z: 36, rx: 5, rz: 11, h: -1.1 },
+        // En låg kulle på östra rakan. Högre kastade den de snabba bilarna mot ladan,
+        // bredare täckte den genvägens början.
+        { x: 44.5, z: 4, rx: 5, rz: 9, h: 0.6 },
+        // Sandkullar ute i öknen
+        { x: 62, z: 40, r: 14, h: 2.2 }, { x: -64, z: -38, r: 16, h: 1.8 }, { x: -6, z: 46, r: 12, h: 1.4 },
+      ],
+      blend: 3,
+    },
+    // Doserade kurvor på plan mark: sandvallen i S:et och kurvan i nordost
+    bank: [{ at: [-14, 10], deg: 18, fade: 8 }, { at: [45, 22], deg: 18, fade: 6 }],
     // Öppen bana: inga kantvallar. Kanterna är öknens egna, husen och
     // trottoarerna på huvudgatan, stenrösen och kaktusar ytterst i kurvorna,
     // bäckfåran och berget vid gruvan.
     freeRoam: true,
-    checkpointHalf: 9,
-    // Sandkullen och den doserade kurvan är vallar av packad sand med sluttande sidor
-    embank: [{ from: [1.5, 18.6], to: [-29, 15.6], slope: 3 }],
+    checkpointHalf: 11,
     // Genvägen genom ladan: av den östra rakan, in genom ladans portar och ut
     // på baksidan, över bäckfåran på en plankramp och upp på bakre rakan efter
     // hoppet. Raka bitar närmast huvudbanan är bara sand (glapp i genvägens
@@ -105,10 +104,14 @@ export const spokstaden = {
   environment({ scene, world, RAPIER, track }) {
     const B = scene ? new ArtBatch() : null;
     const loose = [];
-    makeDesertGround(scene, world, RAPIER, { size: 170 });
+    const ground = track.ground;
+    const gy = (x, z) => ground.heightAt(x, z);
+    // Saker utan egen höjd ställs bara där marken är plan
+    const level = (x, z, rad = 1) => [[0, 0], [rad, 0], [-rad, 0], [0, rad], [0, -rad]].every(([a, b]) => Math.abs(gy(x + a, z + b)) < 0.04);
+    makeDesertGround(scene, world, RAPIER, { size: 170, ground });
     if (scene) {
       addTrackDirt(scene, track);
-      addCreekBed(scene, { points: [[33, 92], [29, 70], [26, 52], [21, 38], [24, 28], [22.9, 21], [24.5, 16.5], [27.5, 12.5], [28.5, 8], [26.5, 3]] });
+      addCreekBed(scene, { ground, points: [[33, 92], [29, 70], [26, 52], [21, 38], [24, 28], [22.9, 21], [24.5, 16.5], [27.5, 12.5], [28.5, 8], [26.5, 3]] });
     }
 
     // Huvudgatan: södra raden (fronten mot +z) och norra raden (fronten mot -z)
@@ -153,8 +156,8 @@ export const spokstaden = {
     addWindpump(B, world, RAPIER, { x: -24, z: 3 });
     addFence(B, world, RAPIER, { points: [[2, 2], [14, 2], [14, 11], [2, 11], [2, 4.5]] });
     addWagon(B, world, RAPIER, { x: 8, z: 6.5, rot: 0.6 });
-    for (const [x, z] of [[-33, 3], [-35, 5.5], [-31, 6], [-34, 8.5], [-36.5, 3.5]]) addGraveCross(B, { x, z, rot: (x * 7) % 0.4 - 0.2 });
-    addFence(B, world, RAPIER, { points: [[-38.5, 1], [-29, 1], [-29, 10.5], [-38.5, 10.5], [-38.5, 1]], low: true });
+    for (const [x, z] of [[-33, 1.5], [-35, 4], [-31, 4.5], [-34, 6.5], [-36.5, 2]]) addGraveCross(B, { x, z, rot: (x * 7) % 0.4 - 0.2 });
+    addFence(B, world, RAPIER, { points: [[-38.5, -0.5], [-29, -0.5], [-29, 8.2], [-38.5, 8.2], [-38.5, -0.5]], low: true });
     // (ladan står nu på genvägen, se nedan)
 
     // Gruvtunneln på västra rakan
@@ -179,19 +182,19 @@ export const spokstaden = {
         const a = tangents[(i - span + N) % N], b = tangents[(i + span) % N];
         const turn = a.x * b.z - a.z * b.x; // + = högersväng sett ovanifrån med +x vänster
         const ang = Math.asin(Math.max(-1, Math.min(1, turn)));
-        if (Math.abs(ang) / (2 * span * spacing) < 1 / 14 || pts[i].y > 0.05) continue;
+        if (Math.abs(ang) / (2 * span * spacing) < 1 / 14 || track.isGap[i]) continue;
         const side = ang > 0 ? 1 : -1; // ytterkurvan
         for (let row = 0; row < 2; row++) {
           const off = roadHalf + 3.4 + row * 1.6 + re() * 1.2;
           const x = pts[i].x + normals[i].x * off * side, z = pts[i].z + normals[i].z * off * side;
-          if (inTown(x, z) || !clearOfTrack(x, z, 2.8) || (track.shortcuts[0] && track.shortcuts[0].path.nearest(x, z).d2 < 9)) continue;
+          if (inTown(x, z) || !clearOfTrack(x, z, 2.8) || !level(x, z, 1.2) || (track.shortcuts[0] && track.shortcuts[0].path.nearest(x, z).d2 < 9)) continue;
           if (row === 1 && re() < 0.3) addCactus(B, world, RAPIER, { x, z, kind: re() < 0.5 ? 'saguaro' : 'barrel', seed: i, h: 1.8 + re() * 1.6 });
           else addRock(B, world, RAPIER, { x, z, size: 0.65 + re() * 0.8, seed: 300 + i * 3 + row });
           if (re() < 0.6) addScrub(B, { x: x + (re() - 0.5) * 1.5, z: z + (re() - 0.5) * 1.5, size: 0.3 + re() * 0.3, seed: i + row });
         }
       }
     }
-    const freeSpot = (x, z, m) => clearOfTrack(x, z, m) && !inTown(x, z) && !(x > -40 && x < 38 && z > -2 && z < 15);
+    const freeSpot = (x, z, m) => clearOfTrack(x, z, m) && !inTown(x, z) && !(x > -40 && x < 38 && z > -2 && z < 15) && level(x, z, Math.min(m, 2));
     let n = 0;
     for (let k = 0; k < 400 && n < 46; k++) {
       const x = (r() - 0.5) * 150, z = (r() - 0.5) * 150;
@@ -209,7 +212,7 @@ export const spokstaden = {
     n = 0;
     for (let k = 0; k < 600 && n < 90; k++) {
       const x = (r() - 0.5) * 160, z = (r() - 0.5) * 160;
-      if (!clearOfTrack(x, z, 1.2)) continue;
+      if (!clearOfTrack(x, z, 1.2) || !level(x, z, 0.4)) continue;
       addScrub(B, { x, z, size: 0.25 + r() * 0.45, seed: k });
       n++;
     }
@@ -223,7 +226,7 @@ export const spokstaden = {
     const edges = shortcutEdges(track);
     edgeColliders(world, RAPIER, edges, { h: 0.6, thick: 0.16 });
     addRailFence(B, edges);
-    for (const [x, z, rot, stack] of [[47.2, -8.5, 1.5, 2], [47, -6.6, 1.62, 1], [46.8, 3.5, 1.5, 1], [12, 24.4, 0.05, 2], [6, 24.3, -0.1, 1], [14.5, 16.4, 0.4, 1], [2.5, 14.8, 0.6, 2]]) {
+    for (const [x, z, rot, stack] of [[47.2, -8.5, 1.5, 2], [47, -6.6, 1.62, 1], [47.4, -3, 1.5, 1], [12, 26.8, 0.05, 2], [5, 27.5, -0.1, 1], [14.5, 16.4, 0.4, 1], [2.5, 14.8, 0.6, 2]]) {
       addHayBale(B, world, RAPIER, { x, z, rot, stack });
     }
 
@@ -247,7 +250,7 @@ export const spokstaden = {
     B?.flush(scene);
 
     // Tumlegräs som bilarna kan putta runt
-    for (const [x, z, s] of [[-18, ST + 2.6, 0.42], [12, ST - 2.4, 0.36], [48.5, 24.5, 0.4], [47, BACK + 4, 0.34], [-8, 9.6, 0.38], [-45, -4, 0.4], [-30, BACK - 3.6, 0.32], [26, ST + 2.9, 0.3]]) {
+    for (const [x, z, s] of [[-18, ST + 2.6, 0.42], [12, ST - 2.4, 0.36], [48.5, 24.5, 0.4], [47, BACK + 4, 0.34], [-8, 9.6, 0.38], [-45, -4, 0.4], [-30, 6.5, 0.32], [26, ST + 2.9, 0.3]]) {
       loose.push(addTumbleweed(scene, world, RAPIER, { x, z, r: s, seed: seed++ }));
     }
     return loose.filter((p) => p && p.body);
@@ -261,7 +264,8 @@ function shortcutEdges(track) {
   return [
     ...edgeSegments(track, [42.3, -10.8], [43.5, 6], { side: 1 }),
     ...edgeSegments(track, [42.3, -10.8], [42.7, -7.6], { side: -1 }),
-    ...edgeSegments(track, [19.5, BACK], [0, 18.6], { side: 1 }),
-    ...edgeSegments(track, [11, BACK], [0, 18.6], { side: -1 }),
+    // Påfarten på bakre rakan: staketet på andra sidan fångar bilarna från
+    // genvägen. Det slutar före kurvan, där det förr stängde sandvallen.
+    ...edgeSegments(track, [12, BACK], [0, 18.6], { side: 1 }),
   ];
 }

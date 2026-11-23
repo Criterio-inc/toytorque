@@ -17,12 +17,12 @@ const CLASSES = ['Rookie', 'Amateur', 'Advanced', 'Semi-Pro', 'Pro'];
 const BLURB = {
   lagret: 'Leksakslagret. Breda gångar utan påkörningsskydd, där pallställen är kanterna. Ett hopp från en körbrygga, en tom kartong att köra igenom och en genväg genom ett tomt fack under truckens pall.',
   kitchen: 'Köket. Ett stort kök med matsal i riktig skala: längs bänkskåpen förbi spisen och kylen, hopp över kokböckerna, runt köksön med barstolarna och rakt in under matbordet mellan stolsbenen. Inga lister på golvet: möblerna är kanterna. Den som vågar tar luckan i köksdörren och en sväng över altanen.',
-  spokstaden: 'Spökstaden. Öppen öken utan kantvallar: västerngatan, plankhoppet över bäcken, sandbanken och gruvtunneln. Stenar och kaktusar väntar den som tar kurvan för fort.',
+  spokstaden: 'Spökstaden. Öppen öken utan kantvallar: västerngatan, ner genom bäckens ravin, sandvallen och upp på den smala åsen med stup åt båda sidor, och sist gruvtunneln. Ladan är en genväg.',
   kryssaren: 'Kryssaren. Kappkörning på öppet däck mellan relingen och däckshuset, upp till soldäcket och genom promenaden.',
-  tradgarden: 'Trädgården. Palmhuset utan kantvallar: en slingrig grusgång över gräskullen och stenbron, ett S runt palmerna, hårnålen i gräsvallen och hoppet över rännan. Låga häckar väntar i kurvorna.',
+  tradgarden: 'Trädgården. Palmhuset på riktigt kuperad mark: uppför slänten till den höga terrassen, ner i hålvägen och under stenbron, och sedan över samma bro ett halvt varv senare. Två doserade kurvor och låga häckar i svängarna.',
   leksaksaffaren: 'Leksaksaffären. Nattöppet bland hyllorna utan kantvallar: regnbågsrampen, borgtunneln vid roboten och hoppet.',
   museet: 'Museet. Nattligt museum där montrarna och pelarna är kanterna: dinosaurien, Egyptensalen, hoppet över det svarta hålet och rulltrappan upp till galleriet.',
-  skejtparken: 'Skejtparken. Öppen bana i parken utan kantvallar: gena över gräset om du vågar. Bordshopp, S-kurva, stora hoppet, vågen och skålen.',
+  skejtparken: 'Skejtparken. Öppen bana i parken utan kantvallar: bordshopp, S-kurvan över puckeln, stora hoppet och sedan uppför till platån med skålen. Därifrån bär det brant nedför.',
   kvarteret: 'Kvarteret. Villagatan i solsken utan höga kantstenar: gena över gräsremsan om du vågar, men akta brevlådorna, staketen och träden. Skaterampen, rondellen och genvägen genom garaget.',
   supermarket: 'Supermarketen. Hyllgångar utan kantvallar, där gondolerna, frysdiskarna och backstaplarna är kanterna. Kampanjhopp, lastkajen och det hala frysrummet.',
 };

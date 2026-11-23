@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { G, groups } from '../core/physics.js';
 import { rng } from './warehouseArt.js';
 import { barrierSegments, barrierCenter, edge3, bankY } from '../track/track.js';
+import { terrainGeometry } from './terrain.js';
 
 export { rng };
 
@@ -27,8 +28,31 @@ const cached = (key, make) => {
 
 const yQuat = (a) => ({ x: 0, y: Math.sin(a / 2), z: 0, w: Math.cos(a / 2) });
 
+// --- kuperad mark ------------------------------------------------------------
+// LIFT lyfter allt som byggs inom lifted() (grafik och kollision) till en höjd,
+// så att hus, träd och lyktor kan ställas på terrängen utan egna y-parametrar.
+// GROUND (terrängen) gör att gator, trottoarer och målning läggs på marken.
+let LIFT = 0, GROUND = null;
+export function setHoodGround(g) { GROUND = g; }
+export function lifted(y, fn) {
+  const old = LIFT;
+  LIFT = y;
+  try { return fn(); } finally { LIFT = old; }
+}
+// Markhöjd i (x, z), 0 utan terräng
+export const groundY = (x, z) => (GROUND ? GROUND.heightAt(x, z) : 0);
+// Lägg en platt geometri på marken: varje hörn får markens höjd
+function drape(g) {
+  if (!GROUND) return g;
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) + GROUND.heightAt(p.getX(i), p.getZ(i)));
+  g.computeVertexNormals();
+  return g;
+}
+const liftedBody = (world, RAPIER) => world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, LIFT, 0));
+
 function fixedBody(world, RAPIER, x = 0, z = 0, rot = 0) {
-  return world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(x, 0, z).setRotation(yQuat(rot)));
+  return world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(x, LIFT, z).setRotation(yQuat(rot)));
 }
 // Låda i kroppens lokala ram (rotY runt egen mittpunkt)
 function boxCollider(world, RAPIER, body, hx, hy, hz, x, y, z, rotY = 0, friction = 0.6) {
@@ -563,6 +587,7 @@ export class HoodBatch {
   // col: [r, g, b] eller null för att behålla geometrins egna vertexfärger
   add(key, geo, col = [1, 1, 1]) {
     let g = geo.index ? geo.toNonIndexed() : geo;
+    if (LIFT) g = (g === geo ? g.clone() : g).translate(0, LIFT, 0);
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k);
     if (!g.attributes.normal) g.computeVertexNormals();
     const n = g.attributes.position.count;
@@ -669,9 +694,13 @@ function groundRect(cx, cz, w, d, rot, y, tile) {
 // Mark: gräsmatta överallt (fysik + grafik)
 // ===========================================================================
 
-export function makeGround(scene, world, RAPIER, { size, visual = 700, grip = 0.9 } = {}) {
+export function makeGround(scene, world, RAPIER, { size, visual = 700, grip = 0.9, ground = null } = {}) {
   const half = size / 2;
-  if (world) {
+  // Med terräng har nivåbyggaren gjort markens kollision: den får bara gräsets grepp
+  if (world && ground?.body) {
+    world.__surfaces ||= new Map();
+    world.__surfaces.set(ground.body.collider(0).handle, { grip });
+  } else if (world) {
     const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     const col = world.createCollider(
       RAPIER.ColliderDesc.cuboid(half + 15, 0.5, half + 15).setTranslation(0, -0.5, 0).setFriction(0.9).setCollisionGroups(groups(G.WORLD)),
@@ -694,9 +723,23 @@ export function makeGround(scene, world, RAPIER, { size, visual = 700, grip = 0.
     col[i * 3] = 0.84 + n * 0.2 + far * 0.05; col[i * 3 + 1] = 0.9 + n * 0.14; col[i * 3 + 2] = 0.78 + n * 0.12;
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const ground = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map, vertexColors: true, roughness: 0.95, envMapIntensity: 0.3 }));
-  ground.receiveShadow = true;
-  scene.add(ground);
+  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map, vertexColors: true, roughness: 0.95, envMapIntensity: 0.3 }));
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  if (ground) {
+    mesh.position.y = -0.03; // den stora gräsytan ligger strax under terrängen
+    const tg = terrainGeometry(ground, GRASS_TILE);
+    const tp = tg.attributes.position, tc = new Float32Array(tp.count * 3);
+    for (let i = 0; i < tp.count; i++) {
+      const x = tp.getX(i), z = tp.getZ(i);
+      const n = 0.5 + 0.25 * Math.sin(x * 0.13 + 1.3) * Math.cos(z * 0.11) + 0.25 * Math.sin((x - z) * 0.045 + 2);
+      tc.set([0.84 + n * 0.2, 0.9 + n * 0.14, 0.78 + n * 0.12], i * 3);
+    }
+    tg.setAttribute('color', new THREE.BufferAttribute(tc, 3));
+    const t = new THREE.Mesh(tg, mesh.material);
+    t.receiveShadow = true;
+    scene.add(t);
+  }
 }
 
 // ===========================================================================
@@ -810,7 +853,7 @@ export function addTrackSidewalks(B, track, ok) {
           for (let k = 0; k < 2; k++) { const v = uv[(t + 1) * 2 + k]; uv[(t + 1) * 2 + k] = uv[(t + 2) * 2 + k]; uv[(t + 2) * 2 + k] = v; }
         }
       }
-      list.push(g);
+      list.push(drape(g));
     }
   }
   if (B && list.length) B.add('concrete', mergeGeometries(list), [0.98, 0.97, 0.95]);
@@ -821,7 +864,7 @@ export function addTrackSidewalks(B, track, ok) {
 export function addStreet(B, world, RAPIER, { a, b, half = 2, free }) {
   const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
   const tx = dx / len, tz = dz / len, nx = -tz, nz = tx;
-  const body = world ? world.createRigidBody(RAPIER.RigidBodyDesc.fixed()) : null;
+  const body = world ? liftedBody(world, RAPIER) : null;
   const rot = Math.atan2(tx, tz);
   const step = 1;
   // Kantstenens kollision: en låda per sammanhängande sträcka
@@ -831,16 +874,20 @@ export function addStreet(B, world, RAPIER, { a, b, half = 2, free }) {
     run[side] = null;
     if (s0 === null || !world) return;
     const m = (s0 + s1) / 2, o = side * (half + 0.125);
-    boxCollider(world, RAPIER, body, 0.125, 0.075, (s1 - s0) / 2, a[0] + tx * m + nx * o, 0.075, a[1] + tz * m + nz * o, rot);
+    const kx = a[0] + tx * m + nx * o, kz = a[1] + tz * m + nz * o;
+    boxCollider(world, RAPIER, body, 0.125, 0.075, (s1 - s0) / 2, kx, groundY(kx, kz) + 0.075, kz, rot);
   };
+  // På kuperad mark blir kantstenens kollision en låda per meter
+  const sloped = (s) => GROUND && Math.abs(groundY(a[0] + tx * s, a[1] + tz * s) - groundY(a[0] + tx * (s + 1), a[1] + tz * (s + 1))) > 0.01;
   for (let s = 0; s < len; s += step) {
     const cx = a[0] + tx * (s + step / 2), cz = a[1] + tz * (s + step / 2);
     // Asfalt (ritas även i korsningar, världs-UV gör skarvarna osynliga)
-    if (B && free(cx, cz, 'asphalt')) B.add('asphalt', groundRect(cx, cz, half * 2 + 0.02, step + 0.02, rot, 0.006, ASPHALT_TILE));
+    if (B && free(cx, cz, 'asphalt')) B.add('asphalt', drape(groundRect(cx, cz, half * 2 + 0.02, step + 0.02, rot, 0.006, ASPHALT_TILE)));
     for (const side of [1, -1]) {
       const kx = cx + nx * side * (half + 0.125), kz = cz + nz * side * (half + 0.125);
       if (free(kx, kz, 'curb')) {
-        if (B) B.add('concrete', box(0.25, 0.15, step, 0, 0.075, 0, { m: 1.5 }).rotateY(rot).translate(kx, 0, kz), [0.9, 0.89, 0.86]);
+        if (B) B.add('concrete', box(0.25, 0.15, step, 0, 0.075, 0, { m: 1.5 }).rotateY(rot).translate(kx, groundY(kx, kz), kz), [0.9, 0.89, 0.86]);
+        if (run[side] !== null && sloped(s)) flush(side, s);
         if (run[side] === null) run[side] = s;
       } else flush(side, s);
       const off = half + 0.25 + VERGE + WALK / 2;
@@ -849,7 +896,7 @@ export function addStreet(B, world, RAPIER, { a, b, half = 2, free }) {
         const g = new THREE.PlaneGeometry(WALK, step).rotateX(-Math.PI / 2);
         const uv = g.attributes.uv;
         for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i), (s + uv.getY(i) * step) / 1.5);
-        B.add('concrete', g.rotateY(rot).translate(wx, 0.019, wz), [0.98, 0.97, 0.95]);
+        B.add('concrete', drape(g.rotateY(rot).translate(wx, 0.019, wz)), [0.98, 0.97, 0.95]);
       }
     }
   }
@@ -864,11 +911,11 @@ export function addStreetPaint(B, { a, b, from = 0, to = 1, crossAt = [] }) {
   const yellow = hex(0xe8b622), white = hex(0xf2f0ea);
   for (let s = len * from; s < len * to - 1.6; s += 3.2) {
     const cx = a[0] + tx * (s + 0.8), cz = a[1] + tz * (s + 0.8);
-    B.add('paint', groundRect(cx, cz, 0.13, 1.6, Math.atan2(tx, tz), 0.02, 1), yellow);
+    B.add('paint', drape(groundRect(cx, cz, 0.13, 1.6, Math.atan2(tx, tz), 0.02, 1)), yellow);
   }
   for (const s of crossAt) {
     const cx = a[0] + tx * s, cz = a[1] + tz * s;
-    for (let k = -3; k <= 3; k++) B.add('paint', groundRect(cx + nx * k * 0.58, cz + nz * k * 0.58, 0.4, 1.8, Math.atan2(tx, tz), 0.02, 1), white);
+    for (let k = -3; k <= 3; k++) B.add('paint', drape(groundRect(cx + nx * k * 0.58, cz + nz * k * 0.58, 0.4, 1.8, Math.atan2(tx, tz), 0.02, 1)), white);
   }
 }
 
@@ -1127,7 +1174,7 @@ export function addOpenGarage(B, world, RAPIER, { x, z, rot = 0, w = 6.6, d = 6.
 /** Lövträd: {x, z, h, s (kronans radie), seed, tint} */
 export function addTree(B, world, RAPIER, { x, z, h = 7, s = 3, seed = 1, tint = 0 }) {
   if (world) {
-    const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    const body = liftedBody(world, RAPIER);
     cylCollider(world, RAPIER, body, 0.22 * s / 3, 2.5, x, z);
   }
   if (!B) return;
@@ -1175,7 +1222,7 @@ export function addTree(B, world, RAPIER, { x, z, h = 7, s = 3, seed = 1, tint =
 
 /** Häck: {x, z, w, d, h, rot} */
 export function addHedge(B, world, RAPIER, { x, z, w, d = 0.7, h = 1.0, rot = 0 }) {
-  if (world) boxCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), w / 2, h / 2, d / 2, x, h / 2, z, rot);
+  if (world) boxCollider(world, RAPIER, liftedBody(world, RAPIER), w / 2, h / 2, d / 2, x, h / 2, z, rot);
   if (!B) return;
   const g = box(w, h, d, 0, h / 2, 0, { m: 1.2 });
   // Rundade överkanter: dra in topphörnen lite
@@ -1193,7 +1240,7 @@ const picket = () => cached('picketGeo', () => {
 
 /** Vitt staket längs en polyline: points [[x, z], ...], gaps: index på delar som lämnas öppna */
 export function addPicketFence(B, world, RAPIER, { points, color = 0xf4f2ec, skip = [] }) {
-  const body = world ? world.createRigidBody(RAPIER.RigidBodyDesc.fixed()) : null;
+  const body = world ? liftedBody(world, RAPIER) : null;
   const col = hex(color);
   for (let k = 0; k < points.length - 1; k++) {
     if (skip.includes(k)) continue;
@@ -1222,7 +1269,7 @@ export function addPicketFence(B, world, RAPIER, { points, color = 0xf4f2ec, ski
 export function addGardenWall(B, world, RAPIER, { x0, z0, x1, z1, h = 0.3, t = 0.24 }) {
   const len = Math.hypot(x1 - x0, z1 - z0), rot = Math.atan2(x1 - x0, z1 - z0);
   const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-  if (world) boxCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), t / 2, h / 2, len / 2, cx, h / 2, cz, rot);
+  if (world) boxCollider(world, RAPIER, liftedBody(world, RAPIER), t / 2, h / 2, len / 2, cx, h / 2, cz, rot);
   if (!B) return;
   B.add('brick', box(t, h, len, 0, h / 2, 0, { m: 1 }).rotateY(rot).translate(cx, 0, cz), [1, 1, 1]);
   B.add('concrete', box(t + 0.06, 0.05, len + 0.04, 0, h + 0.025, 0, { m: 1.5 }).rotateY(rot).translate(cx, 0, cz), [0.9, 0.88, 0.84]);
@@ -1233,7 +1280,7 @@ export function addGardenWall(B, world, RAPIER, { x0, z0, x1, z1, h = 0.3, t = 0
 // ===========================================================================
 
 export function addLamp(B, world, RAPIER, { x, z, rot = 0 }) {
-  if (world) cylCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), 0.1, 3, x, z);
+  if (world) cylCollider(world, RAPIER, liftedBody(world, RAPIER), 0.1, 3, x, z);
   if (!B) return;
   const M = frame(x, z, rot);
   const c = hex(0x2f3a33);
@@ -1250,7 +1297,7 @@ export function addLamp(B, world, RAPIER, { x, z, rot = 0 }) {
 }
 
 export function addMailbox(B, world, RAPIER, { x, z, rot = 0, color = 0x2b2b2b, seed = 1 }) {
-  if (world) boxCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), 0.1, 0.6, 0.25, x, 0.6, z, rot);
+  if (world) boxCollider(world, RAPIER, liftedBody(world, RAPIER), 0.1, 0.6, 0.25, x, 0.6, z, rot);
   if (!B) return;
   const M = frame(x, z, rot);
   B.add('wood', box(0.1, 1.05, 0.1, 0, 0.525, 0).applyMatrix4(M), [0.8, 0.78, 0.74]);
@@ -1262,7 +1309,7 @@ export function addMailbox(B, world, RAPIER, { x, z, rot = 0, color = 0x2b2b2b, 
 }
 
 export function addHydrant(B, world, RAPIER, { x, z }) {
-  if (world) cylCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), 0.16, 0.75, x, z);
+  if (world) cylCollider(world, RAPIER, liftedBody(world, RAPIER), 0.16, 0.75, x, z);
   if (!B) return;
   const red = hex(0xd22f22);
   B.add('metal', cyl(0.2, 0.22, 0.08, x, 0, z), red);
@@ -1277,7 +1324,7 @@ export function addHydrant(B, world, RAPIER, { x, z }) {
 }
 
 export function addBin(B, world, RAPIER, { x, z, rot = 0, color = 0x2d6a3e }) {
-  if (world) boxCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), 0.32, 0.53, 0.36, x, 0.53, z, rot);
+  if (world) boxCollider(world, RAPIER, liftedBody(world, RAPIER), 0.32, 0.53, 0.36, x, 0.53, z, rot);
   if (!B) return;
   const M = frame(x, z, rot);
   const c = hex(color);
@@ -1289,7 +1336,7 @@ export function addBin(B, world, RAPIER, { x, z, rot = 0, color = 0x2d6a3e }) {
 
 // Avspärrning (sågbock) med orange-vita brädor: {x, z, rot, w}
 export function addBarricade(B, world, RAPIER, { x, z, rot = 0, w = 1.8 }) {
-  if (world) boxCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), w / 2, 0.45, 0.25, x, 0.45, z, rot);
+  if (world) boxCollider(world, RAPIER, liftedBody(world, RAPIER), w / 2, 0.45, 0.25, x, 0.45, z, rot);
   if (!B) return;
   const M = frame(x, z, rot);
   for (const y of [0.55, 0.85]) {
@@ -1304,7 +1351,7 @@ export function addBarricade(B, world, RAPIER, { x, z, rot = 0, w = 1.8 }) {
 
 // Tegelstenar staplade (som under en hemmabyggd ramp)
 export function addBrickStack(B, world, RAPIER, { x, z, rot = 0, layers = 3, seed = 1 }) {
-  if (world) boxCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), 0.12, layers * 0.035, 0.1, x, layers * 0.035, z, rot);
+  if (world) boxCollider(world, RAPIER, liftedBody(world, RAPIER), 0.12, layers * 0.035, 0.1, x, layers * 0.035, z, rot);
   if (!B) return;
   const r = rng(seed);
   for (let l = 0; l < layers; l++) {
@@ -1430,7 +1477,7 @@ export function addSandbox(B, world, RAPIER, { x, z, rot = 0, s = 2 }) {
 // ===========================================================================
 
 export function addIsland(B, world, RAPIER, { x, z, r }) {
-  if (world) cylCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), r, 0.18, x, z);
+  if (world) cylCollider(world, RAPIER, liftedBody(world, RAPIER), r, 0.18, x, z);
   if (!B) return;
   const ring = new THREE.CylinderGeometry(r, r, 0.18, 40, 1, true).translate(x, 0.09, z);
   B.add('concrete', ring, [0.92, 0.91, 0.88]);
@@ -1535,7 +1582,7 @@ function ballTexture() {
 export function addLooseBall(scene, world, RAPIER, { x, z, r = 0.11, mass = 0.07 }) {
   let body = null;
   if (world) {
-    body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, r + 0.01, z).setLinearDamping(0.25).setAngularDamping(0.4));
+    body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, LIFT + r + 0.01, z).setLinearDamping(0.25).setAngularDamping(0.4));
     world.createCollider(RAPIER.ColliderDesc.ball(r).setDensity(0).setMass(mass).setFriction(0.6).setRestitution(0.65).setCollisionGroups(groups(G.PROP)), body);
   }
   let mesh = null;
@@ -1553,9 +1600,25 @@ export function addLooseBall(scene, world, RAPIER, { x, z, r = 0.11, mass = 0.07
 // ===========================================================================
 
 /** Tätt brädstaket (plankstaket) längs en polyline, med kollision. */
-export function addPlankFence(B, world, RAPIER, { points, h = 1.6, color = 0xb59a7a }) {
-  const body = world ? world.createRigidBody(RAPIER.RigidBodyDesc.fixed()) : null;
+export function addPlankFence(B, world, RAPIER, { points, h = 1.6, color = 0xb59a7a, ground = null }) {
+  const body = world ? liftedBody(world, RAPIER) : null;
   const col = hex(color), post = mix(col, [0.2, 0.15, 0.1], 0.35);
+  // På kuperad mark delas planket i korta bitar som var och en står på marken
+  if (ground) {
+    const pts = [];
+    for (let k = 0; k < points.length - 1; k++) {
+      const [ax, az] = points[k], [bx, bz] = points[k + 1];
+      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 2.4));
+      for (let j = 0; j < n; j++) pts.push([ax + ((bx - ax) * j) / n, az + ((bz - az) * j) / n]);
+    }
+    pts.push(points[points.length - 1]);
+    for (let k = 0; k < pts.length - 1; k++) {
+      const [ax, az] = pts[k], [bx, bz] = pts[k + 1];
+      const y = Math.min(ground.heightAt(ax, az), ground.heightAt(bx, bz), ground.heightAt((ax + bx) / 2, (az + bz) / 2)) - 0.04;
+      plankPiece(B, body, world, RAPIER, ax, az, bx, bz, y, h, col, post);
+    }
+    return;
+  }
   for (let k = 0; k < points.length - 1; k++) {
     const [ax, az] = points[k], [bx, bz] = points[k + 1];
     const len = Math.hypot(bx - ax, bz - az);
@@ -1575,9 +1638,21 @@ export function addPlankFence(B, world, RAPIER, { points, h = 1.6, color = 0xb59
   }
 }
 
+function plankPiece(B, body, world, RAPIER, ax, az, bx, bz, y, h, col, post) {
+  const len = Math.hypot(bx - ax, bz - az);
+  if (len < 0.05) return;
+  const rot = Math.atan2(bx - ax, bz - az);
+  const cx = (ax + bx) / 2, cz = (az + bz) / 2;
+  if (world) boxCollider(world, RAPIER, body, 0.04, h / 2, len / 2, cx, y + h / 2, cz, rot);
+  if (!B) return;
+  B.add('wood', box(0.04, h, len, 0, h / 2, 0, { m: 1.3 }).rotateY(rot).translate(cx, y, cz), col);
+  B.add('wood', box(0.09, 0.05, len + 0.02, 0, h + 0.02, 0, { m: 1 }).rotateY(rot).translate(cx, y, cz), post);
+  B.add('wood', box(0.11, h + 0.12, 0.11, 0, (h + 0.12) / 2, 0).rotateY(rot).translate(ax, y, az), post);
+}
+
 /** Fullstor trafikkon (fast, står alltid utanför vägen). */
 export function addCone(B, world, RAPIER, { x, z, s = 1 }) {
-  if (world) cylCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), 0.17 * s, 0.7 * s, x, z);
+  if (world) cylCollider(world, RAPIER, liftedBody(world, RAPIER), 0.17 * s, 0.7 * s, x, z);
   if (!B) return;
   B.add('rubber', box(0.42 * s, 0.04 * s, 0.42 * s, x, 0.02 * s, z));
   B.add('plastic', new THREE.ConeGeometry(0.17 * s, 0.66 * s, 10, 1, true).translate(x, 0.37 * s, z), hex(0xff6a12));
@@ -1586,7 +1661,7 @@ export function addCone(B, world, RAPIER, { x, z, s = 1 }) {
 
 // Bom i rött och vitt: stolpe med motvikt och en uppfälld arm (armen pekar mot lokal +x)
 export function addBoomGate(B, world, RAPIER, { x, z, rot = 0, len = 4.6, raise = 1.25 }) {
-  if (world) boxCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), 0.28, 0.6, 0.28, x, 0.6, z, rot);
+  if (world) boxCollider(world, RAPIER, liftedBody(world, RAPIER), 0.28, 0.6, 0.28, x, 0.6, z, rot);
   if (!B) return;
   const M = frame(x, z, rot);
   const add = (key, g, col) => B.add(key, g.applyMatrix4(M), col);
@@ -1609,7 +1684,7 @@ export function addBoomGate(B, world, RAPIER, { x, z, rot = 0, len = 4.6, raise 
 // Vaktkur vid bommen: vit kur med fönster och rödvit list
 export function addBooth(B, world, RAPIER, { x, z, rot = 0 }) {
   const W = 1.6, D = 1.6, H = 2.3;
-  if (world) boxCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), W / 2, H / 2, D / 2, x, H / 2, z, rot);
+  if (world) boxCollider(world, RAPIER, liftedBody(world, RAPIER), W / 2, H / 2, D / 2, x, H / 2, z, rot);
   if (!B) return;
   const M = frame(x, z, rot);
   const add = (key, g, col) => B.add(key, g.applyMatrix4(M), col);
@@ -1694,7 +1769,7 @@ export function addDirtPatch(B, { x, z, rx, rz, rot = 0, seed = 1, y = 0.012, co
 
 /** Jordhög: knölig kulle. */
 export function addDirtPile(B, world, RAPIER, { x, z, r: rad = 1.5, h = 1.0, seed = 1, collide = true }) {
-  if (world && collide) cylCollider(world, RAPIER, world.createRigidBody(RAPIER.RigidBodyDesc.fixed()), rad * 0.75, h * 0.7, x, z);
+  if (world && collide) cylCollider(world, RAPIER, liftedBody(world, RAPIER), rad * 0.75, h * 0.7, x, z);
   if (!B) return;
   const r = rng(seed);
   const g = new THREE.SphereGeometry(1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -1725,7 +1800,7 @@ export function addTunnel(B, world, RAPIER, { track, i0, i1, height = 2.5, wallO
   for (let k = -wx; k < idx.length + wx; k++) wall.push((i0 + k + N) % N);
   // Väggar (kollision) längs tunneln
   if (world) {
-    const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    const body = liftedBody(world, RAPIER);
     for (let k = 0; k < wall.length - 1; k += 2) {
       const a = pts[wall[k]], b = pts[wall[Math.min(wall.length - 1, k + 2)]];
       const len = Math.hypot(b.x - a.x, b.z - a.z), rot = Math.atan2(b.x - a.x, b.z - a.z);
@@ -1866,7 +1941,7 @@ export function addTunnel(B, world, RAPIER, { track, i0, i1, height = 2.5, wallO
 export function addTrackCurb(B, world, RAPIER, { track, i0, i1, side, h = track.barrier.height, t = track.barrier.thick, ok = () => true, key = 'concrete', colors = [[0.88, 0.87, 0.84]] }) {
   const { N } = track;
   let stripe = 0;
-  const body = world ? world.createRigidBody(RAPIER.RigidBodyDesc.fixed()) : null;
+  const body = world ? liftedBody(world, RAPIER) : null;
   const off = track.roadHalf + t / 2;
   const count = (i1 - i0 + N) % N;
   for (let k = 0; k < count; k += 3) {

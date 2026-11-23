@@ -129,6 +129,13 @@ function handlingRun(def, kind, helper = 0, angle = 30) {
   return { maxBeta, maxYaw, minUp, maxTurn, endBeta: betaOf(car), endUp: car.upY, v0, vEnd: Math.hypot(v.x, v.z) };
 }
 
+// En enda bana (npm test tradgarden): alla bilar tre varv på den
+const onlyLevel = [...ALL_LEVELS, provbana].find((l) => l.id === only);
+if (onlyLevel) for (const id of CAR_ORDER) {
+  const r = lapRun(CARS[id], id, onlyLevel);
+  check(`${CARS[id].name.padEnd(11)} ${onlyLevel.name.padEnd(6)} 3 varv`, r.ok, r.info);
+}
+
 for (const id of CAR_ORDER) {
   if (only && only !== id) continue;
   const def = CARS[id];
@@ -432,7 +439,7 @@ if (!only || only === 'stabilitet') {
 // 9. Fullt fält: 8 datorförare på varje nivå ska alla gå i mål utan kaos
 const FIELD_LEVELS = [kitchen, lagret, spokstaden, kryssaren, tradgarden, leksaksaffaren, museet, kvarteret, supermarket, skejtparken, ...EDITOR_LEVELS, provbana];
 for (const level of FIELD_LEVELS) {
-  if (only && only !== 'falt' && !(only === 'topografi' && level === provbana)) continue; // kör: npm test falt
+  if (only && only !== 'falt' && only !== level.id && !(only === 'topografi' && level === provbana)) continue; // kör: npm test falt
   const world = createWorld(RAPIER);
   const lvl = buildLevel({ world, RAPIER, level });
   const T = lvl.track;

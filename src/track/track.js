@@ -322,8 +322,10 @@ function buildShortcut(main, sc, A, B, s) {
     for (let i = 0; i < N - 1; i++) { const d = (flat[i].x - k[0] * s) ** 2 + (flat[i].z - k[1] * s) ** 2; if (d < bd) { bd = d; b = i; } }
     return frac(b);
   };
-  // Höjd: från huvudbanans höjd vid A till höjden vid B, med egna nycklar emellan
-  const keys = [[0, pa.y, false], ...(sc.elevation || []).map((e) => [fracAt(e.at ?? e[0]), e.y ?? e[1], !!(e.linear ?? e[2])]), [1, pb.y, false]].sort((a, b) => a[0] - b[0]);
+  // Höjd: från huvudbanans höjd vid A till höjden vid B, med egna nycklar emellan.
+  // På terräng räknas höjderna ovanför marken och marken läggs till sist.
+  const G = main.groundAt || (() => 0);
+  const keys = [[0, pa.y - G(pa.x, pa.z), false], ...(sc.elevation || []).map((e) => [fracAt(e.at ?? e[0]), e.y ?? e[1], !!(e.linear ?? e[2])]), [1, pb.y - G(pb.x, pb.z), false]].sort((a, b) => a[0] - b[0]);
   const heightAt = (f) => {
     let k = keys.findIndex((e) => e[0] > f);
     if (k <= 0) return k === 0 ? keys[0][1] : keys[keys.length - 1][1];
@@ -332,7 +334,7 @@ function buildShortcut(main, sc, A, B, s) {
     return a[1] + (b[1] - a[1]) * (b[2] ? u : u * u * (3 - 2 * u));
   };
   const ranges = (sc.gaps || []).map((g) => [fracAt(g.from), fracAt(g.to)]);
-  const pts = flat.map((p, i) => ({ x: p.x, y: heightAt(frac(i)), z: p.z }));
+  const pts = flat.map((p, i) => ({ x: p.x, y: heightAt(frac(i)) + G(p.x, p.z), z: p.z }));
   const isGap = pts.map((_, i) => i === N - 1 || ranges.some(([a, b]) => frac(i) >= a && frac(i) <= b));
   // Utan kanter närmast huvudbanan; en sned påfart behöver längre öppen bit (sc.merge, meter)
   const merge = Math.round((sc.merge ?? roadHalf * 2.4) / spacing);
