@@ -92,6 +92,53 @@ export function attachDebug(game) {
       info.autoReset = true;
       return n;
     },
+    // Prestanda i riktig Chrome: mät sek sekunder av vanlig körning. Fysik och
+    // spelkod mäts på processorn; resten av bildrutan är grafikkortet eller väntan.
+    async bench(sek = 6) {
+      const t = { step: 0, scene: 0, post: 0 };
+      const wrap = (obj, key, slot) => {
+        const f = obj[key];
+        obj[key] = function (...a) { const s = performance.now(); const r = f.apply(this, a); t[slot] += performance.now() - s; return r; };
+        return () => { obj[key] = f; };
+      };
+      const undo = [wrap(game, 'step', 'step'), wrap(game, 'render', 'scene'), wrap(game.post, 'render', 'post')];
+      const info = game.renderer.info;
+      const gaps = [];
+      let last = performance.now();
+      await new Promise((done) => {
+        const end = last + sek * 1000;
+        const tick = () => {
+          const now = performance.now();
+          gaps.push(now - last); last = now;
+          if (now < end) requestAnimationFrame(tick); else done();
+        };
+        requestAnimationFrame(tick);
+      });
+      undo.forEach((u) => u());
+      gaps.shift();
+      const n = gaps.length, sum = gaps.reduce((a, b) => a + b, 0);
+      gaps.sort((a, b) => a - b);
+      const ms = (v) => +(v / n).toFixed(2);
+      return {
+        fps: +(1000 * n / sum).toFixed(1), p95: +gaps[Math.floor(n * 0.95)].toFixed(1), worst: +gaps[n - 1].toFixed(1),
+        fysik: ms(t.step), spelkod: ms(t.scene - t.post - 0), ritning: ms(t.post),
+        anrop: info.render.calls, trianglar: info.render.triangles,
+        upplosning: `${game.renderer.domElement.width}x${game.renderer.domElement.height}`,
+      };
+    },
+    // Samma mätning med en sak avstängd i taget, för att se vad som kostar
+    async benchAll(sek = 4) {
+      const r = game.renderer, P = game.post, sun = game.sun;
+      const out = { allt: await this.bench(sek) };
+      const prov = async (namn, på, av) => { på(); await new Promise((d) => setTimeout(d, 300)); out[namn] = await this.bench(sek); av(); };
+      const ao = P.ao.enabled, pr = r.getPixelRatio();
+      await prov('utanHornskugg', () => { P.ao.enabled = false; }, () => { P.ao.enabled = ao; });
+      await prov('utanSkuggor', () => { sun.castShadow = false; }, () => { sun.castShadow = true; });
+      await prov('utanEfterbeh', () => { P.enabled = false; }, () => { P.enabled = true; });
+      await prov('pixel1', () => game.setGraphics(false) || (r.setPixelRatio(1), P.composer.setPixelRatio(1), game.resize()), () => { r.setPixelRatio(pr); P.composer.setPixelRatio(pr); game.resize(); });
+      await prov('enkel', () => game.setGraphics(true), () => game.setGraphics(false));
+      return out;
+    },
   };
   const shot = new URLSearchParams(location.search).get('shot');
   const spot = new URLSearchParams(location.search).get('plats');

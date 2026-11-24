@@ -69,8 +69,9 @@ export class Vehicle {
     const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
       .setLinearDamping(0.005)
       .setAngularDamping(0.25)
-      .setCanSleep(false)
-      .setCcdEnabled(true);
+      .setCanSleep(false);
+    // Ingen CCD: den exakta tog nästan all fysikens tid på banorna med
+    // terräng, och den mjuka fick bilarna att studsa mot hinder i förväg.
     this.body = world.createRigidBody(bodyDesc);
 
     const colDesc = RAPIER.ColliderDesc.cuboid(halfW, b.halfH, b.halfL)

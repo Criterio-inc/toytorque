@@ -123,7 +123,7 @@ export const museet = {
     ],
     embank: [{ from: [E, N + 7], to: [E - 7, N], slope: 2.5 }],
     shortcuts: [{
-      from: TOMB.A, to: TOMB.B, via: [TOMB.V1, TOMB.V2, TOMB.V3], r: 12, roadHalf: 1.35, ai: 0.35,
+      from: TOMB.A, to: TOMB.B, via: [TOMB.V1, TOMB.V2, TOMB.V3], r: 14, roadHalf: 1.35, ai: 0.35,
       gaps: [{ from: [E - 0.1, 4.6], to: [27.5, -7.6] }, { from: [12.4, -29.0], to: [4.3, -31.95] }],
     }],
   },
