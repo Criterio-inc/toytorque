@@ -70,7 +70,9 @@ export class Vehicle {
       .setLinearDamping(0.005)
       .setAngularDamping(0.25)
       .setCanSleep(false)
-      .setCcdEnabled(true);
+      // Mjuk CCD (kontakter förutses en bit framåt) i stället för exakt CCD:
+      // den exakta mot banornas stora marknät tog två tredjedelar av fysikens tid
+      .setSoftCcdPrediction(0.3);
     this.body = world.createRigidBody(bodyDesc);
 
     const colDesc = RAPIER.ColliderDesc.cuboid(halfW, b.halfH, b.halfL)

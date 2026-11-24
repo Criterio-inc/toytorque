@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 
 export const STEP = 1 / 120; // fast fysiksteg; små snabba bilar kräver tätt steg
-export const MAX_STEPS_PER_FRAME = 8; // skydd mot "dödsspiral" vid seg frame
+export const MAX_STEPS_PER_FRAME = 4; // vid en seg bildruta går spelet hellre lite långsammare än fastnar i allt fler steg per bild
 export const GRAVITY = 11; // m/s²
 
 // Kollisionsgrupper (bitar). Rapier: groups = (medlemskap << 16) | filter.

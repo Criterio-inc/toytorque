@@ -64,6 +64,8 @@ export class Game {
     renderer.toneMappingExposure = 1.05;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Felkontrollen läser varje shaders logg och stoppar upp kompileringen
+    renderer.debug.checkShaderErrors = import.meta.env.DEV;
     container.appendChild(renderer.domElement);
     this.renderer = renderer;
 
@@ -268,6 +270,9 @@ export class Game {
     this.hud.setSplit?.(!!this.p2);
     this.lastLap = 1;
     this.acc = 0;
+    // Shaders kompileras i förväg och parallellt, annars hackar de första
+    // sekunderna av loppet medan varje nytt material kompileras
+    this.renderer.compileAsync?.(this.scene, this.camera).catch(() => {});
   }
 
   _addCar(vehicle, ai, name, isPlayer) {
