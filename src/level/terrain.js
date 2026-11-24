@@ -118,50 +118,17 @@ export function buildTerrainData(track, spec, size) {
 }
 
 // Kollision: ett trimesh av samma rutnät. Rapiers höjdkarta missar lodräta
-// strålar i stora rutnät (hjulens strålar), så den används inte. Plana fält
-// (gräsmattor, platåer, gatunivå) slås ihop till stora trianglar: ett fullt
-// rutnät på 260 000 trianglar gjorde fysiksteget ungefär dubbelt så långsamt.
+// strålar i stora rutnät (hjulens strålar), så den används inte.
 export function buildTerrainPhysics(world, RAPIER, T) {
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-  const { vertices, indices } = terrainColliderMesh(T);
+  const g = terrainGeometry(T);
   world.createCollider(
-    RAPIER.ColliderDesc.trimesh(vertices, indices).setFriction(1).setCollisionGroups(groups(G.WORLD)),
+    RAPIER.ColliderDesc.trimesh(g.attributes.position.array, new Uint32Array(g.index.array))
+      .setFriction(1).setCollisionGroups(groups(G.WORLD)),
     body
   );
+  g.dispose();
   return body;
-}
-
-// Rutnätet som kvadratträd: ett block vars alla punkter ligger i samma plan
-// (inom tol meter) blir två trianglar, annars delas det i fyra. Kanterna mot
-// finare grannar spricker inte, eftersom grannarnas kantpunkter ingår i det
-// plana blocket och alltså ligger på dess kant.
-export function terrainColliderMesh(T, tol = 0.002, top = 32) {
-  const { n, cell, half, heights } = T;
-  const H = (ix, iz) => heights[iz + ix * (n + 1)];
-  const map = new Map(), verts = [], idx = [];
-  const vert = (ix, iz) => {
-    const k = iz * (n + 1) + ix;
-    let v = map.get(k);
-    if (v === undefined) { v = verts.length / 3; map.set(k, v); verts.push(-half + ix * cell, H(ix, iz), -half + iz * cell); }
-    return v;
-  };
-  const planar = (x0, z0, s) => {
-    const h0 = H(x0, z0), gx = (H(x0 + s, z0) - h0) / s, gz = (H(x0, z0 + s) - h0) / s;
-    for (let i = 0; i <= s; i++) for (let j = 0; j <= s; j++) if (Math.abs(H(x0 + i, z0 + j) - (h0 + gx * i + gz * j)) > tol) return false;
-    return true;
-  };
-  const block = (x0, z0, s) => {
-    if (x0 >= n || z0 >= n) return;
-    if (s > 1 && (x0 + s > n || z0 + s > n || !planar(x0, z0, s))) {
-      const h = s / 2;
-      block(x0, z0, h); block(x0 + h, z0, h); block(x0, z0 + h, h); block(x0 + h, z0 + h, h);
-      return;
-    }
-    const a = vert(x0, z0), b = vert(x0 + s, z0), c = vert(x0, z0 + s), d = vert(x0 + s, z0 + s);
-    idx.push(a, c, b, b, c, d);
-  };
-  for (let x0 = 0; x0 < n; x0 += top) for (let z0 = 0; z0 < n; z0 += top) block(x0, z0, top);
-  return { vertices: new Float32Array(verts), indices: new Uint32Array(idx) };
 }
 
 // Grafik: samma rutnät som kollisionen, så att det man ser är det man kör på

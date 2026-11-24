@@ -73,6 +73,7 @@ export class ChaseCamera {
 
     this._follow(dt, carPos, carQuat, carVel, speed, top, M);
     this._spring(dt);
+    this._keepSight(carPos);
     this._apply(dt, speed);
   }
 
@@ -103,6 +104,7 @@ export class ChaseCamera {
     if (this.snap) {
       this.pos.copy(_desired);
       this.vel.set(0, 0, 0);
+      this.desY = _desired.y;
       this.lookAt.copy(_look);
       this.snap = false;
     }
@@ -166,12 +168,33 @@ export class ChaseCamera {
     if (hit) _desired.copy(_look).addScaledVector(_dir, Math.max(0.15, hit.timeOfImpact - 0.08));
   }
 
+  // Fri sikt till bilen: fjädern kan släpa kameran bakom ett krön eller in i
+  // en vägg som målpunkten själv inte står i. Då flyttas kameran fram längs
+  // siktlinjen till strax framför hindret.
+  _keepSight(carPos) {
+    _look.copy(carPos); _look.y += 0.08;
+    _dir.subVectors(this.pos, _look);
+    const len = _dir.length();
+    if (len < 0.2) return;
+    _dir.divideScalar(len);
+    const hit = this.world.castRay(new this.RAPIER.Ray(_look, _dir), len, true, undefined, CAMERA_RAY_GROUPS);
+    if (!hit) return;
+    this.pos.copy(_look).addScaledVector(_dir, Math.max(0.15, hit.timeOfImpact - 0.08));
+    const out = this.vel.dot(_dir);
+    if (out > 0) this.vel.addScaledVector(_dir, -out); // inte tillbaka in i hindret
+  }
+
   _spring(dt, k = 60, d = 14) {
     const n = Math.max(1, Math.ceil(dt / (1 / 120)));
     const h = dt / n;
+    // I höjdled dämpas fjädern mot målpunktens egen fart. Annars släpar
+    // kameran under bilen i en brant backe eller upp för ett hopp och hamnar
+    // inne i marken bakom den. I sidled får den släpa, det ger kurvkänslan.
+    const vy = this.desY === undefined || dt <= 0 ? 0 : THREE.MathUtils.clamp((_desired.y - this.desY) / dt, -12, 12); // ett hopp i målpunkten (återställning) ska inte slunga kameran
+    this.desY = _desired.y;
     for (let i = 0; i < n; i++) {
       this.vel.x += (k * (_desired.x - this.pos.x) - d * this.vel.x) * h;
-      this.vel.y += (k * (_desired.y - this.pos.y) - d * this.vel.y) * h;
+      this.vel.y += (k * (_desired.y - this.pos.y) - d * (this.vel.y - vy)) * h;
       this.vel.z += (k * (_desired.z - this.pos.z) - d * this.vel.z) * h;
       this.pos.addScaledVector(this.vel, h);
     }
